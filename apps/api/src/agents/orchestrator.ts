@@ -688,16 +688,31 @@ export async function runOrchestratorStream(
     let finalResult: Partial<OrchestratorStateType> = {};
     const toolsUsed: string[] = [];
 
+    // Track which node is currently executing
+    let currentNode = "";
+
     for await (const event of eventStream) {
-      // Tokens do LLM (para respostas do generalResponse ou classificador)
+      // Track node transitions
+      if (event.event === "on_chain_start" && event.name) {
+        currentNode = event.name;
+      }
+
+      // Tokens do LLM - only stream from response nodes, not from intent classifier
       if (event.event === "on_chat_model_stream") {
-        const chunk = event.data?.chunk;
-        if (chunk?.content) {
-          const token = typeof chunk.content === "string"
-            ? chunk.content
-            : chunk.content[0]?.text || "";
-          if (token) {
-            await callbacks.onToken(token);
+        // Skip tokens from the intent classifier (analyzeIntent node)
+        // The classifier outputs JSON which shouldn't be shown to users
+        const isClassifier = currentNode === "analyzeIntent" ||
+          (event.metadata?.langgraph_node === "analyzeIntent");
+
+        if (!isClassifier) {
+          const chunk = event.data?.chunk;
+          if (chunk?.content) {
+            const token = typeof chunk.content === "string"
+              ? chunk.content
+              : chunk.content[0]?.text || "";
+            if (token) {
+              await callbacks.onToken(token);
+            }
           }
         }
       }
