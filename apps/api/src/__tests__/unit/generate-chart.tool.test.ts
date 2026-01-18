@@ -648,4 +648,130 @@ describe("generate_chart tool", () => {
       expect(result.chart?.showCenterValue).toBe(false);
     });
   });
+
+  describe("auto-aggregation", () => {
+    it("should auto-aggregate data when more than 25 points", () => {
+      // Generate 50 data points with duplicate dates
+      const data: GenerateChartInput["data"] = [];
+      for (let i = 0; i < 50; i++) {
+        const date = `2025-10-${String((i % 10) + 1).padStart(2, "0")}`; // 10 unique dates
+        data.push({ name: date, value: 80 + (i % 20) }); // Values between 80-99
+      }
+
+      const input: GenerateChartInput = {
+        type: "line",
+        title: "Pass Rate Evolution",
+        data,
+        showLegend: true,
+        showTooltip: true,
+      };
+
+      const result = generateChart(input);
+
+      expect(result.success).toBe(true);
+      // Should be aggregated to 10 unique dates (max 25)
+      expect(result.chart?.data.length).toBeLessThanOrEqual(25);
+      expect(result.chart?.data.length).toBe(10); // 10 unique dates
+    });
+
+    it("should calculate average when aggregating", () => {
+      // Create 30 data points for only 5 unique dates
+      // This triggers aggregation (>25 points) and verifies average calculation
+      const input: GenerateChartInput = {
+        type: "line",
+        title: "Aggregated Average",
+        data: [
+          // 6 points for each date = 30 total points, 5 unique dates
+          { name: "2025-01-01", value: 100 },
+          { name: "2025-01-01", value: 80 },
+          { name: "2025-01-01", value: 90 },
+          { name: "2025-01-01", value: 100 },
+          { name: "2025-01-01", value: 80 },
+          { name: "2025-01-01", value: 90 }, // Average: (100+80+90+100+80+90)/6 = 90
+          { name: "2025-01-02", value: 70 },
+          { name: "2025-01-02", value: 50 },
+          { name: "2025-01-02", value: 70 },
+          { name: "2025-01-02", value: 50 },
+          { name: "2025-01-02", value: 70 },
+          { name: "2025-01-02", value: 50 }, // Average: (70+50+70+50+70+50)/6 = 60
+          { name: "2025-01-03", value: 50 },
+          { name: "2025-01-03", value: 50 },
+          { name: "2025-01-03", value: 50 },
+          { name: "2025-01-03", value: 50 },
+          { name: "2025-01-03", value: 50 },
+          { name: "2025-01-03", value: 50 }, // Average: 50
+          { name: "2025-01-04", value: 75 },
+          { name: "2025-01-04", value: 75 },
+          { name: "2025-01-04", value: 75 },
+          { name: "2025-01-04", value: 75 },
+          { name: "2025-01-04", value: 75 },
+          { name: "2025-01-04", value: 75 }, // Average: 75
+          { name: "2025-01-05", value: 100 },
+          { name: "2025-01-05", value: 100 },
+          { name: "2025-01-05", value: 100 },
+          { name: "2025-01-05", value: 100 },
+          { name: "2025-01-05", value: 100 },
+          { name: "2025-01-05", value: 100 }, // Average: 100
+        ],
+        showLegend: true,
+        showTooltip: true,
+      };
+
+      const result = generateChart(input);
+
+      expect(result.success).toBe(true);
+      // After aggregation: 5 unique dates
+      expect(result.chart?.data.length).toBe(5);
+
+      // Find the aggregated point for 2025-01-01
+      const jan01 = result.chart?.data.find((d) => d.name === "2025-01-01");
+      expect(jan01?.value).toBe(90); // (100+80+90+100+80+90)/6 = 90
+
+      const jan02 = result.chart?.data.find((d) => d.name === "2025-01-02");
+      expect(jan02?.value).toBe(60); // (70+50+70+50+70+50)/6 = 60
+    });
+
+    it("should not aggregate when data points <= 25", () => {
+      const input: GenerateChartInput = {
+        type: "line",
+        title: "No Aggregation Needed",
+        data: Array.from({ length: 20 }, (_, i) => ({
+          name: `Day ${i + 1}`,
+          value: i * 5,
+        })),
+        showLegend: true,
+        showTooltip: true,
+      };
+
+      const result = generateChart(input);
+
+      expect(result.success).toBe(true);
+      expect(result.chart?.data.length).toBe(20); // All points preserved
+    });
+
+    it("should truncate to last 25 points if still too many after aggregation", () => {
+      // 100 data points with 100 unique names (can't aggregate further)
+      const data: GenerateChartInput["data"] = Array.from({ length: 100 }, (_, i) => ({
+        name: `Point-${String(i).padStart(3, "0")}`,
+        value: i,
+      }));
+
+      const input: GenerateChartInput = {
+        type: "line",
+        title: "Truncated Data",
+        data,
+        showLegend: true,
+        showTooltip: true,
+      };
+
+      const result = generateChart(input);
+
+      expect(result.success).toBe(true);
+      // Should be truncated to last 25 points
+      expect(result.chart?.data.length).toBe(25);
+      // Should be the last 25 points (alphabetically sorted, so Point-075 to Point-099)
+      expect(result.chart?.data[0]?.name).toBe("Point-075");
+      expect(result.chart?.data[24]?.name).toBe("Point-099");
+    });
+  });
 });

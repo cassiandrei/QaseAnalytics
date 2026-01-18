@@ -47,6 +47,13 @@ Chart types to use:
 - **bar**: For comparing categories (tests per project, results per run)
 - **line/area**: For trends over time (pass rate evolution, test count growth)
 
+CRITICAL - Data Aggregation Rules:
+- **NEVER pass more than 20 data points** to the generate_chart tool
+- For evolution/trend charts: **AGGREGATE data by date** (calculate average per day)
+- If you have multiple runs on the same date, combine them into ONE data point with the average pass rate
+- For distribution charts: group into categories (passed, failed, blocked, skipped)
+- Example: 100 test runs → group by date → ~15 daily averages
+
 IMPORTANT: When generating a chart, include the markdown output from the tool in your response.
 The format is: :::chart\\n{{json}}\\n:::
 This allows the frontend to render the chart inline.

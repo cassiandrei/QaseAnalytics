@@ -177,6 +177,59 @@ function generateChartId(): string {
   return `chart-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 }
 
+/** Limite máximo de pontos de dados para evitar erros de parsing */
+const MAX_DATA_POINTS = 25;
+
+/**
+ * Agrega dados por nome (data) calculando a média dos valores.
+ * Usado para evitar payloads muito grandes quando há muitos pontos.
+ */
+function aggregateDataByName(
+  data: GenerateChartInput["data"]
+): GenerateChartInput["data"] {
+  const aggregated = new Map<
+    string,
+    { sum: number; count: number; sum2: number; count2: number; sum3: number; count3: number }
+  >();
+
+  for (const point of data) {
+    const existing = aggregated.get(point.name);
+    if (existing) {
+      existing.sum += point.value;
+      existing.count += 1;
+      if (point.value2 != null) {
+        existing.sum2 += point.value2;
+        existing.count2 += 1;
+      }
+      if (point.value3 != null) {
+        existing.sum3 += point.value3;
+        existing.count3 += 1;
+      }
+    } else {
+      aggregated.set(point.name, {
+        sum: point.value,
+        count: 1,
+        sum2: point.value2 ?? 0,
+        count2: point.value2 != null ? 1 : 0,
+        sum3: point.value3 ?? 0,
+        count3: point.value3 != null ? 1 : 0,
+      });
+    }
+  }
+
+  // Convert to array, sorted by name (useful for dates)
+  const result = Array.from(aggregated.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([name, agg]) => ({
+      name,
+      value: Math.round((agg.sum / agg.count) * 100) / 100, // 2 decimal places
+      value2: agg.count2 > 0 ? Math.round((agg.sum2 / agg.count2) * 100) / 100 : null,
+      value3: agg.count3 > 0 ? Math.round((agg.sum3 / agg.count3) * 100) / 100 : null,
+    }));
+
+  return result;
+}
+
 /**
  * Aplica cores semânticas aos dados baseado no nome.
  */
@@ -228,11 +281,28 @@ export function generateChart(input: GenerateChartInput): GenerateChartResult {
       };
     }
 
+    // Auto-aggregate data if too many points to avoid JSON parsing errors
+    let processedData = input.data;
+    if (input.data.length > MAX_DATA_POINTS) {
+      console.warn(
+        `[generate_chart] Too many data points (${input.data.length}), auto-aggregating to avoid parsing errors`
+      );
+      processedData = aggregateDataByName(input.data);
+
+      // If still too many after aggregation, take last N points
+      if (processedData.length > MAX_DATA_POINTS) {
+        console.warn(
+          `[generate_chart] Still too many points after aggregation (${processedData.length}), keeping last ${MAX_DATA_POINTS}`
+        );
+        processedData = processedData.slice(-MAX_DATA_POINTS);
+      }
+    }
+
     // Aplica cores (convert null to undefined)
-    const colors = applySemanticColors(input.data, input.colors ?? undefined);
+    const colors = applySemanticColors(processedData, input.colors ?? undefined);
 
     // Convert data to remove null values
-    const chartData = input.data.map((d) => ({
+    const chartData = processedData.map((d) => ({
       name: d.name,
       value: d.value,
       value2: d.value2 ?? undefined,
