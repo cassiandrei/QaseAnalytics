@@ -8,7 +8,6 @@
 ## 📋 BACKLOG - MVP (Fase 1)
 | ID | User Story | Prioridade | Épico |
 |----|------------|------------|-------|
-| US-018 | Seleção de Projeto | Alta | Interface de Chat |
 | US-020 | Gráfico de Linhas | Alta | Visualização de Dados |
 | US-021 | Gráfico de Barras | Alta | Visualização de Dados |
 | US-022 | Gráfico de Pizza/Donut | Alta | Visualização de Dados |
@@ -55,19 +54,19 @@
 
 | Métrica | Valor |
 |---------|-------|
-| Total de US | 22 |
+| Total de US | 21 |
 | Concluídas | 11 |
 | Em Progresso | 0 |
 | Em Revisão | 0 |
-| No Backlog | 11 |
-| **Progresso** | **50%** |
+| No Backlog | 10 |
+| **Progresso** | **52%** |
 
 ---
 
 ## 📝 Próximas Fases
 
 ### Fase 2: Core Features
-- US-009, US-010, US-013, US-014, US-015, US-019
+- US-009, US-010, US-013, US-014, US-015, US-018, US-019
 - US-023, US-024, US-025, US-028, US-032, US-033
 - US-038, US-039, US-040, US-041, US-045, US-046, US-047, US-048
 - US-058, US-060
