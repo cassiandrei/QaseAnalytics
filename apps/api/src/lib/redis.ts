@@ -7,7 +7,7 @@
  * @see US-005: Listar Projetos do Qase
  */
 
-import Redis from "ioredis";
+import { Redis } from "ioredis";
 import { env } from "./env.js";
 
 /** Configuração padrão de TTL (em segundos) */
@@ -68,7 +68,7 @@ export function getRedisClient(): Redis | null {
   if (!redisClient) {
     redisClient = new Redis(env.REDIS_URL, {
       maxRetriesPerRequest: 3,
-      retryStrategy: (times) => {
+      retryStrategy: (times: number) => {
         if (times > 3) {
           return null; // Stop retrying
         }
@@ -77,7 +77,7 @@ export function getRedisClient(): Redis | null {
       lazyConnect: true,
     });
 
-    redisClient.on("error", (error) => {
+    redisClient.on("error", (error: Error) => {
       console.error("Redis connection error:", error);
     });
 

@@ -18,7 +18,7 @@ const mockRedis = {
 };
 
 vi.mock("ioredis", () => ({
-  default: vi.fn(() => mockRedis),
+  Redis: vi.fn(() => mockRedis),
 }));
 
 // Mock do env

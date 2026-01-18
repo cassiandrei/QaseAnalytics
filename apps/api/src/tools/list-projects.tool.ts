@@ -29,7 +29,11 @@ const ListProjectsInputSchema = z.object({
     .describe("Number of projects to skip for pagination (default: 0)"),
 });
 
-export type ListProjectsInput = z.infer<typeof ListProjectsInputSchema>;
+/** Tipo de entrada para a função listProjectsWithCache (limit e offset são opcionais) */
+export type ListProjectsInput = {
+  limit?: number;
+  offset?: number;
+};
 
 /** Resultado formatado para o agent */
 export interface ListProjectsResult {

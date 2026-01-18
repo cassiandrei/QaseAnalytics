@@ -145,6 +145,22 @@ export const QaseRunStatsSchema = z.object({
 
 export type QaseRunStats = z.infer<typeof QaseRunStatsSchema>;
 
+/** Schema de environment do Qase (pode ser objeto ou null) */
+const QaseEnvironmentSchema = z.object({
+  title: z.string(),
+  description: z.string().nullable().optional(),
+  slug: z.string().optional(),
+  host: z.string().optional(),
+}).nullable().optional();
+
+/** Schema de milestone do Qase (pode ser objeto ou null) */
+const QaseMilestoneSchema = z.object({
+  id: z.number().optional(),
+  title: z.string(),
+  description: z.string().nullable().optional(),
+  status: z.string().optional(),
+}).nullable().optional();
+
 /** Schema de test run do Qase */
 export const QaseTestRunSchema = z.object({
   id: z.number(),
@@ -155,8 +171,15 @@ export const QaseTestRunSchema = z.object({
   start_time: z.string().nullable().optional(),
   end_time: z.string().nullable().optional(),
   public: z.boolean().optional(),
-  stats: QaseRunStatsSchema,
+  stats: QaseRunStatsSchema.extend({
+    statuses: z.record(z.number()).optional(), // API v1 returns { passed: N, failed: N, ... }
+  }),
   time_spent: z.number().optional(), // milliseconds
+  elapsed_time: z.number().optional(), // milliseconds
+  // API returns objects instead of IDs
+  environment: QaseEnvironmentSchema,
+  milestone: QaseMilestoneSchema,
+  // Keep old fields for backwards compatibility
   environment_id: z.number().nullable().optional(),
   milestone_id: z.number().nullable().optional(),
   plan_id: z.number().nullable().optional(),
@@ -171,9 +194,9 @@ export const QaseTestRunSchema = z.object({
   })).optional(),
   custom_fields: z.array(z.object({
     id: z.number(),
-    title: z.string(),
     value: z.string().nullable(),
   })).optional(),
+  configurations: z.array(z.unknown()).optional(),
 });
 
 export type QaseTestRun = z.infer<typeof QaseTestRunSchema>;
@@ -207,6 +230,7 @@ export const QaseTestResultSchema = z.object({
   stacktrace: z.string().nullable().optional(),
   run_id: z.number(),
   case_id: z.number(),
+  // Case info is optional and may not be included in all responses
   case: z.object({
     title: z.string(),
     description: z.string().nullable().optional(),
@@ -239,7 +263,7 @@ export const QaseTestResultSchema = z.object({
   })).optional(),
   steps: z.array(z.object({
     position: z.number(),
-    status: z.string(),
+    status: z.union([z.string(), z.number()]), // API returns number (1=passed), but can also be string
     comment: z.string().nullable().optional(),
     attachments: z.array(z.unknown()).optional(),
   })).optional(),

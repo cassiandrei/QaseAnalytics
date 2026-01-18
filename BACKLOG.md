@@ -8,8 +8,6 @@
 ## 📋 BACKLOG - MVP (Fase 1)
 | ID | User Story | Prioridade | Épico |
 |----|------------|------------|-------|
-| US-011 | Configuração do LangChain Agent | Alta | Motor de IA (LangChain) |
-| US-012 | Consultas em Linguagem Natural | Alta | Motor de IA (LangChain) |
 | US-016 | Tela de Chat | Alta | Interface de Chat |
 | US-017 | Preview de Gráficos no Chat | Alta | Interface de Chat |
 | US-018 | Seleção de Projeto | Alta | Interface de Chat |
@@ -41,6 +39,8 @@
 ## ✅ DONE
 | ID | User Story | Data Conclusão | Observações |
 |----|------------|----------------|-------------|
+| US-012 | Consultas em Linguagem Natural | 2026-01-18 | ChatService + 5 endpoints + SSE streaming + 302 testes |
+| US-011 | Configuração do LangChain Agent | 2026-01-18 | QaseAgent + GPT-4o + Memory buffer + 4 tools + 256 testes |
 | US-008 | Obter Resultados Detalhados | 2026-01-18 | LangChain tool get_run_results + Redis cache 5min + 203 testes |
 | US-007 | Obter Execuções de Teste | 2026-01-18 | LangChain tool get_test_runs + Redis cache 2min + 178 testes |
 | US-006 | Obter Casos de Teste | 2026-01-18 | LangChain tool get_test_cases + Redis cache 2min + 149 testes |
@@ -56,11 +56,11 @@
 | Métrica | Valor |
 |---------|-------|
 | Total de US | 22 |
-| Concluídas | 7 |
+| Concluídas | 9 |
 | Em Progresso | 0 |
 | Em Revisão | 0 |
-| No Backlog | 15 |
-| **Progresso** | **32%** |
+| No Backlog | 13 |
+| **Progresso** | **41%** |
 
 ---
 

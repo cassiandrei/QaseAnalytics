@@ -100,7 +100,18 @@ const GetTestCasesInputSchema = z.object({
     .describe("Number of test cases to skip for pagination (default: 0)"),
 });
 
-export type GetTestCasesInput = z.infer<typeof GetTestCasesInputSchema>;
+/** Tipo de entrada para a função getTestCasesWithCache (limit e offset são opcionais) */
+export type GetTestCasesInput = {
+  projectCode: string;
+  search?: string;
+  suiteId?: number;
+  severity?: "undefined" | "blocker" | "critical" | "major" | "normal" | "minor" | "trivial";
+  priority?: "undefined" | "high" | "medium" | "low";
+  automation?: "is-not-automated" | "automated" | "to-be-automated";
+  status?: "actual" | "draft" | "deprecated";
+  limit?: number;
+  offset?: number;
+};
 
 /** Resultado formatado para o agent */
 export interface GetTestCasesResult {

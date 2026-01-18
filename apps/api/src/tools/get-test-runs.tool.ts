@@ -60,7 +60,17 @@ export const GetTestRunsInputSchema = z.object({
     .describe("Number of runs to skip for pagination"),
 });
 
-export type GetTestRunsInput = z.infer<typeof GetTestRunsInputSchema>;
+/** Tipo de entrada para a função getTestRunsWithCache (limit e offset são opcionais) */
+export type GetTestRunsInput = {
+  projectCode: string;
+  status?: "active" | "complete" | "abort";
+  fromStartTime?: string;
+  toStartTime?: string;
+  environment?: number;
+  milestone?: number;
+  limit?: number;
+  offset?: number;
+};
 
 /** Mapeamento de status numérico para texto */
 const STATUS_MAP: Record<number, string> = {
@@ -119,6 +129,10 @@ function transformTestRun(run: QaseTestRunList["entities"][0]): TestRunResult {
   const passed = stats.passed || 0;
   const passRate = total > 0 ? Math.round((passed / total) * 100 * 100) / 100 : 0;
 
+  // API can return environment as object or environment_id as number
+  const environmentId = run.environment_id ?? null;
+  const milestoneId = run.milestone_id ?? (run.milestone as { id?: number } | null)?.id ?? null;
+
   return {
     id: run.id,
     title: run.title,
@@ -135,8 +149,8 @@ function transformTestRun(run: QaseTestRunList["entities"][0]): TestRunResult {
       untested: stats.untested ?? 0,
     },
     passRate,
-    environmentId: run.environment_id ?? null,
-    milestoneId: run.milestone_id ?? null,
+    environmentId,
+    milestoneId,
     timeSpent: run.time_spent ?? null,
     casesCount: run.cases_count ?? run.cases?.length ?? 0,
   };

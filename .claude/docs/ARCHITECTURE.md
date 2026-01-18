@@ -212,11 +212,14 @@ pnpm db:studio
 
 ### Endpoints Planejados
 
-#### Chat
-| Método | Endpoint | Descrição | US |
-|--------|----------|-----------|-----|
-| POST | `/api/chat/message` | Envia mensagem ao agent | US-012 |
-| GET | `/api/chat/history` | Lista histórico de conversas | US-049 |
+#### Chat (Implementado - US-012)
+| Método | Endpoint | Descrição | US | Status |
+|--------|----------|-----------|-----|--------|
+| POST | `/api/chat/message` | Envia mensagem ao agent (suporta SSE) | US-012 | ✅ |
+| GET | `/api/chat/history` | Lista histórico de mensagens | US-012 | ✅ |
+| DELETE | `/api/chat/history` | Limpa histórico do chat | US-012 | ✅ |
+| GET | `/api/chat/status` | Status da sessão de chat | US-012 | ✅ |
+| POST | `/api/chat/project` | Define projeto ativo | US-012 | ✅ |
 
 #### Widgets
 | Método | Endpoint | Descrição | US |
@@ -442,10 +445,70 @@ ENCRYPTION_KEY=<mínimo 32 caracteres>
 
 ---
 
+## ChatService (US-012)
+
+O ChatService processa mensagens em linguagem natural e integra com o QaseAgent.
+
+### Endpoints
+
+```typescript
+// POST /api/chat/message
+// Envia mensagem para o agente
+interface SendMessageRequest {
+  message: string;           // 1-2000 caracteres
+  projectCode?: string;      // Código do projeto Qase
+  stream?: boolean;          // Se true, usa SSE
+}
+
+interface SendMessageResponse {
+  success: boolean;
+  message?: {
+    id: string;
+    role: "assistant";
+    content: string;
+    timestamp: Date;
+    toolsUsed?: string[];
+    durationMs?: number;
+  };
+  toolsUsed?: string[];
+  durationMs?: number;
+  error?: string;
+}
+```
+
+### Streaming (SSE)
+
+Quando `stream: true`, a resposta é enviada via Server-Sent Events:
+
+```
+event: start
+data: {"timestamp":"2026-01-18T10:00:00.000Z"}
+
+event: chunk
+data: {"content":"Você tem 5 projetos..."}
+
+event: done
+data: {"message":{...},"toolsUsed":["list_projects"],"durationMs":1500}
+```
+
+### Tratamento de Erros
+
+| Erro | Código | Mensagem |
+|------|--------|----------|
+| Usuário não autenticado | 401 | "Authentication required" |
+| Sem conexão Qase | 400 | "Please connect your Qase account first" |
+| Mensagem vazia | 400 | "Message is required" |
+| Mensagem longa | 400 | "Message is too long (max 2000 characters)" |
+| Rate limit OpenAI | 400 | "Rate limit exceeded. Please wait..." |
+| Timeout | 400 | "Request timed out. Please try a simpler question." |
+
+---
+
 ## Changelog
 
 | Data | Alteração | Autor |
 |------|-----------|-------|
+| 2026-01-18 | US-012: ChatService + Routes + SSE streaming + 46 testes | Claude |
 | 2026-01-18 | US-005: LangChain tool list_projects + Redis cache 5min | Claude |
 | 2026-01-18 | US-004: Integração Qase API - validação, conexão, encriptação | Claude |
 | 2026-01-18 | US-002: Banco de dados PostgreSQL + Prisma ORM configurados | Claude |

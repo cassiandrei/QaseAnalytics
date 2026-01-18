@@ -6,8 +6,14 @@ import { prettyJSON } from "hono/pretty-json";
 
 import { healthRoutes } from "./routes/health.js";
 import { qaseRoutes } from "./routes/qase.js";
+import { chatRoutes } from "./routes/chat.js";
 
-const app = new Hono();
+/** Tipo de variáveis de contexto para o Hono */
+type AppVariables = {
+  userId?: string;
+};
+
+const app = new Hono<{ Variables: AppVariables }>();
 
 // Middleware
 app.use("*", logger());
@@ -33,6 +39,7 @@ app.use("/api/*", async (c, next) => {
 // Routes
 app.route("/health", healthRoutes);
 app.route("/api/qase", qaseRoutes);
+app.route("/api/chat", chatRoutes);
 
 // Root
 app.get("/", (c) => {
