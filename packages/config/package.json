@@ -1,0 +1,11 @@
+{
+  "name": "@qase-analytics/config",
+  "version": "0.1.0",
+  "private": true,
+  "exports": {
+    "./eslint": "./eslint/index.js",
+    "./typescript/base": "./typescript/base.json",
+    "./typescript/nextjs": "./typescript/nextjs.json",
+    "./typescript/node": "./typescript/node.json"
+  }
+}

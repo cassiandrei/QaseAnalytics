@@ -1,0 +1,18 @@
+{
+  "project": "QaseAnalytics",
+  "description": "Plataforma de analytics para QA com chat conversacional usando GPT-5 + LangChain",
+  "permissions": {
+    "allow": [
+      "Read(**)",
+      "Edit(**)",
+      "Write(**)",
+      "Bash(*)"
+    ]
+  },
+  "context": {
+    "alwaysInclude": [
+      "CLAUDE.md",
+      "BACKLOG.md"
+    ]
+  }
+}

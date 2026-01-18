@@ -1,0 +1,8 @@
+{
+  "extends": "@qase-analytics/config/typescript/nextjs",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist"
+  },
+  "include": ["src/**/*"]
+}
