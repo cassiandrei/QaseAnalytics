@@ -257,12 +257,21 @@ pnpm db:studio
 
 ## Componentes Frontend
 
+### Componentes Implementados (US-016)
+
+| Componente | Descrição | US | Status |
+|------------|-----------|-----|--------|
+| `<ChatContainer />` | Container principal do chat | US-016 | ✅ |
+| `<ChatHeader />` | Header com status e ações | US-016 | ✅ |
+| `<MessageList />` | Lista de mensagens com scroll | US-016 | ✅ |
+| `<MessageInput />` | Input com Enter/Shift+Enter | US-016 | ✅ |
+| `<ChatMessage />` | Mensagem com markdown | US-016 | ✅ |
+| `<TypingIndicator />` | Indicador "digitando" | US-016 | ✅ |
+
 ### Componentes Planejados
 
 | Componente | Descrição | US |
 |------------|-----------|-----|
-| `<ChatInterface />` | Interface principal do chat | US-016 |
-| `<ChatMessage />` | Mensagem individual | US-016 |
 | `<ChartPreview />` | Preview de gráfico inline | US-017 |
 | `<ProjectSelector />` | Seletor de projeto Qase | US-018 |
 | `<LineChart />` | Wrapper Recharts - Linhas | US-020 |
@@ -270,6 +279,66 @@ pnpm db:studio
 | `<PieChart />` | Wrapper Recharts - Pizza | US-022 |
 | `<WidgetCard />` | Card de widget reutilizável | US-027 |
 | `<DashboardGrid />` | Grid de widgets (RGL) | US-030 |
+
+### Estrutura de Arquivos Frontend (US-016)
+
+```
+apps/web/src/
+├── app/
+│   ├── globals.css       # Estilos globais + scrollbar
+│   ├── layout.tsx        # Layout raiz com Inter font
+│   └── page.tsx          # Página inicial com ChatContainer
+├── components/
+│   └── chat/
+│       ├── index.ts          # Barrel exports
+│       ├── ChatContainer.tsx # Orquestrador principal
+│       ├── ChatHeader.tsx    # Header com título e ações
+│       ├── ChatMessage.tsx   # Mensagem com markdown
+│       ├── MessageInput.tsx  # Input de texto
+│       ├── MessageList.tsx   # Lista + empty state
+│       └── TypingIndicator.tsx
+├── hooks/
+│   └── use-chat.ts       # Hook com lógica de chat
+├── lib/
+│   └── api.ts            # Cliente API com SSE
+└── stores/
+    └── chat-store.ts     # Zustand store
+```
+
+### Chat Store (Zustand)
+
+```typescript
+interface ChatState {
+  messages: ChatMessage[];
+  isLoading: boolean;
+  isStreaming: boolean;
+  streamingContent: string;
+  error: string | null;
+  userId: string;
+  projectCode: string | null;
+
+  // Actions
+  addMessage: (message: ChatMessage) => void;
+  updateLastMessage: (content: string) => void;
+  setMessages: (messages: ChatMessage[]) => void;
+  clearMessages: () => void;
+  setLoading: (loading: boolean) => void;
+  setStreaming: (streaming: boolean) => void;
+  // ...
+}
+```
+
+### Features da Tela de Chat
+
+| Feature | Descrição |
+|---------|-----------|
+| Markdown | react-markdown + remark-gfm para renderização |
+| Streaming | SSE para respostas em tempo real |
+| Auto-scroll | Scroll automático para novas mensagens |
+| Responsive | Design adaptável mobile/tablet/desktop |
+| Empty state | Sugestões de perguntas iniciais |
+| Typing indicator | Animação enquanto AI processa |
+| Keyboard | Enter envia, Shift+Enter nova linha |
 
 ---
 
@@ -508,6 +577,7 @@ data: {"message":{...},"toolsUsed":["list_projects"],"durationMs":1500}
 
 | Data | Alteração | Autor |
 |------|-----------|-------|
+| 2026-01-18 | US-016: Tela de Chat + Componentes + Zustand + E2E tests | Claude |
 | 2026-01-18 | US-012: ChatService + Routes + SSE streaming + 46 testes | Claude |
 | 2026-01-18 | US-005: LangChain tool list_projects + Redis cache 5min | Claude |
 | 2026-01-18 | US-004: Integração Qase API - validação, conexão, encriptação | Claude |
