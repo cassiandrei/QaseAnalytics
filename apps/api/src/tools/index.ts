@@ -46,4 +46,6 @@ export {
   type GenerateChartResult,
   type ChartConfig,
   type ChartType,
+  type BarChartLayout,
+  type BarStackMode,
 } from "./generate-chart.tool.js";

@@ -87,24 +87,37 @@ export class ChatError extends Error {
 /**
  * Obtém o token do Qase para um usuário.
  *
+ * Em desenvolvimento (NODE_ENV !== 'production'), se o usuário não tiver token
+ * configurado no banco, usa a variável de ambiente QASE_API_TOKEN.
+ * Isso permite testar sem precisar configurar a conexão manualmente.
+ *
  * @param userId - ID do usuário
  * @returns Token decriptado ou null se não conectado
  */
 async function getQaseTokenForUser(userId: string): Promise<string | null> {
+  // Try to get token from database first
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { qaseApiToken: true, qaseTokenValid: true },
   });
 
-  if (!user || !user.qaseApiToken || !user.qaseTokenValid) {
-    return null;
+  // If user has a valid token in DB, use it
+  if (user?.qaseApiToken && user.qaseTokenValid) {
+    try {
+      return decrypt(user.qaseApiToken);
+    } catch {
+      // Fall through to env token
+    }
   }
 
-  try {
-    return decrypt(user.qaseApiToken);
-  } catch {
-    return null;
+  // In development, fall back to QASE_API_TOKEN environment variable
+  // This allows testing without manual connection setup
+  if (process.env.NODE_ENV !== "production" && env.QASE_API_TOKEN) {
+    console.log(`[Dev] Using QASE_API_TOKEN from environment for user: ${userId}`);
+    return env.QASE_API_TOKEN;
   }
+
+  return null;
 }
 
 /**

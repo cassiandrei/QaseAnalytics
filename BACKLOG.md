@@ -8,9 +8,6 @@
 ## 📋 BACKLOG - MVP (Fase 1)
 | ID | User Story | Prioridade | Épico |
 |----|------------|------------|-------|
-| US-020 | Gráfico de Linhas | Alta | Visualização de Dados |
-| US-021 | Gráfico de Barras | Alta | Visualização de Dados |
-| US-022 | Gráfico de Pizza/Donut | Alta | Visualização de Dados |
 | US-026 | Salvar Gráfico como Widget | Alta | Sistema de Widgets |
 | US-027 | Listar Meus Widgets | Alta | Sistema de Widgets |
 | US-030 | Criar Dashboard (básico) | Alta | Dashboards |
@@ -36,6 +33,9 @@
 ## ✅ DONE
 | ID | User Story | Data Conclusão | Observações |
 |----|------------|----------------|-------------|
+| US-022 | Gráfico de Pizza/Donut | 2026-01-18 | Hover effect + center value + centerLabel + 30 testes |
+| US-021 | Gráfico de Barras | 2026-01-18 | Horizontal layout + stacked/percent modes + value labels + 30 testes |
+| US-020 | Gráfico de Linhas | 2026-01-18 | Brush zoom/pan + ReferenceArea + auto threshold + 30 testes |
 | US-017 | Preview de Gráficos no Chat | 2026-01-18 | Recharts + generate_chart tool + ChartPreview + ChartModal + 25 testes |
 | US-016 | Tela de Chat | 2026-01-18 | ChatContainer + Zustand + Markdown + SSE + E2E tests |
 | US-012 | Consultas em Linguagem Natural | 2026-01-18 | ChatService + 5 endpoints + SSE streaming + 302 testes |
@@ -55,11 +55,11 @@
 | Métrica | Valor |
 |---------|-------|
 | Total de US | 21 |
-| Concluídas | 11 |
+| Concluídas | 14 |
 | Em Progresso | 0 |
 | Em Revisão | 0 |
-| No Backlog | 10 |
-| **Progresso** | **52%** |
+| No Backlog | 7 |
+| **Progresso** | **67%** |
 
 ---
 

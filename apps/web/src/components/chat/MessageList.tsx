@@ -64,9 +64,10 @@ export function MessageList({
         {/* Suggestion chips */}
         <div className="flex flex-wrap gap-2 justify-center max-w-md">
           <SuggestionChip text="Quais projetos eu tenho acesso?" onClick={onSendMessage} />
-          <SuggestionChip text="Qual o pass rate do último test run?" onClick={onSendMessage} />
-          <SuggestionChip text="Liste os casos de teste" onClick={onSendMessage} />
-          <SuggestionChip text="Mostre os test runs recentes" onClick={onSendMessage} />
+          <SuggestionChip text="Mostre um gráfico donut com a distribuição de status dos testes" onClick={onSendMessage} />
+          <SuggestionChip text="Crie um gráfico de barras horizontais dos testes por projeto" onClick={onSendMessage} />
+          <SuggestionChip text="Gere um gráfico de linha com a evolução do pass rate" onClick={onSendMessage} />
+          <SuggestionChip text="Compare os resultados em um gráfico de barras empilhadas" onClick={onSendMessage} />
         </div>
       </div>
     );

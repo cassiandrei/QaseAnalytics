@@ -5,6 +5,9 @@
  * Os gráficos são renderizados no frontend usando Recharts.
  *
  * @see US-017: Preview de Gráficos no Chat
+ * @see US-020: Gráfico de Linhas
+ * @see US-021: Gráfico de Barras
+ * @see US-022: Gráfico de Pizza/Donut
  */
 
 import { DynamicStructuredTool } from "@langchain/core/tools";
@@ -12,6 +15,12 @@ import { z } from "zod";
 
 /** Tipos de gráficos suportados */
 export type ChartType = "line" | "bar" | "pie" | "donut" | "area";
+
+/** Layout do gráfico de barras */
+export type BarChartLayout = "vertical" | "horizontal";
+
+/** Modo de empilhamento para barras */
+export type BarStackMode = "grouped" | "stacked" | "percent";
 
 /** Schema para um ponto de dados */
 const DataPointSchema = z.object({
@@ -51,6 +60,40 @@ export const GenerateChartInputSchema = z.object({
     .array(z.string())
     .nullish()
     .describe("Custom color palette (array of hex codes)"),
+
+  // US-020: Line chart options
+  enableBrush: z
+    .boolean()
+    .nullish()
+    .describe("Enable brush for zoom/pan on line charts (auto-enabled for >10 data points)"),
+
+  // US-021: Bar chart options
+  barLayout: z
+    .enum(["vertical", "horizontal"])
+    .optional()
+    .describe("Bar chart layout orientation (default: vertical)"),
+  barStackMode: z
+    .enum(["grouped", "stacked", "percent"])
+    .optional()
+    .describe("Bar stacking mode: grouped (side by side), stacked (on top), percent (normalized to 100%). Default: grouped"),
+  showBarLabels: z
+    .boolean()
+    .optional()
+    .describe("Show value labels on bars (default: false)"),
+
+  // US-022: Pie/Donut options
+  showCenterValue: z
+    .boolean()
+    .nullish()
+    .describe("Show center value in donut chart (default: true for donut)"),
+  centerLabel: z
+    .string()
+    .nullish()
+    .describe("Label below center value in donut (e.g., 'Total', 'Tests')"),
+  centerValue: z
+    .union([z.number(), z.string()])
+    .nullish()
+    .describe("Custom center value for donut (default: sum of all values)"),
 });
 
 /** Tipo de entrada para a função generateChart */
@@ -79,6 +122,19 @@ export interface ChartConfig {
   showTooltip: boolean;
   colors: string[];
   createdAt: string;
+
+  // US-020: Line chart options
+  enableBrush?: boolean;
+
+  // US-021: Bar chart options
+  barLayout?: BarChartLayout;
+  barStackMode?: BarStackMode;
+  showBarLabels?: boolean;
+
+  // US-022: Pie/Donut options
+  showCenterValue?: boolean;
+  centerLabel?: string;
+  centerValue?: number | string;
 }
 
 /** Resultado da geração de gráfico */
@@ -172,23 +228,51 @@ export function generateChart(input: GenerateChartInput): GenerateChartResult {
       };
     }
 
-    // Aplica cores
-    const colors = applySemanticColors(input.data, input.colors);
+    // Aplica cores (convert null to undefined)
+    const colors = applySemanticColors(input.data, input.colors ?? undefined);
+
+    // Convert data to remove null values
+    const chartData = input.data.map((d) => ({
+      name: d.name,
+      value: d.value,
+      value2: d.value2 ?? undefined,
+      value3: d.value3 ?? undefined,
+    }));
+
+    // Convert series to remove null values
+    const chartSeries = input.series?.map((s) => ({
+      dataKey: s.dataKey,
+      name: s.name,
+      color: s.color ?? undefined,
+    }));
 
     // Cria configuração do gráfico
     const chart: ChartConfig = {
       id: generateChartId(),
       type: input.type,
       title: input.title,
-      description: input.description,
-      data: input.data,
-      series: input.series,
-      xAxisLabel: input.xAxisLabel,
-      yAxisLabel: input.yAxisLabel,
+      description: input.description ?? undefined,
+      data: chartData,
+      series: chartSeries,
+      xAxisLabel: input.xAxisLabel ?? undefined,
+      yAxisLabel: input.yAxisLabel ?? undefined,
       showLegend: input.showLegend ?? true,
       showTooltip: input.showTooltip ?? true,
       colors,
       createdAt: new Date().toISOString(),
+
+      // US-020: Line chart options
+      enableBrush: input.enableBrush ?? undefined,
+
+      // US-021: Bar chart options
+      barLayout: input.barLayout ?? undefined,
+      barStackMode: input.barStackMode ?? undefined,
+      showBarLabels: input.showBarLabels ?? undefined,
+
+      // US-022: Pie/Donut options
+      showCenterValue: input.showCenterValue ?? undefined,
+      centerLabel: input.centerLabel ?? undefined,
+      centerValue: input.centerValue ?? undefined,
     };
 
     // Gera markdown especial para indicar o gráfico
@@ -259,6 +343,19 @@ Best practices:
 - Use bar for comparing discrete categories
 - Use line for time series or trends
 - Use area for cumulative trends
+
+LINE CHART OPTIONS (US-020):
+- enableBrush: Enable zoom/pan for large datasets (auto-enabled for >10 points)
+
+BAR CHART OPTIONS (US-021):
+- barLayout: "vertical" (default) or "horizontal"
+- barStackMode: "grouped" (side by side), "stacked" (on top), "percent" (normalized 100%)
+- showBarLabels: Show value labels on bars
+
+PIE/DONUT OPTIONS (US-022):
+- showCenterValue: Show total in donut center (default: true for donut)
+- centerLabel: Label below center value (e.g., "Total", "Tests")
+- centerValue: Custom center value (default: sum)
 
 Color semantics (automatically applied):
 - passed/success: green (#10b981)

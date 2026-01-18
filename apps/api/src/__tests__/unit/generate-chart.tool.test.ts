@@ -2,10 +2,13 @@
  * Tests for generate_chart tool
  *
  * @see US-017: Preview de Gráficos no Chat
+ * @see US-020: Gráfico de Linhas
+ * @see US-021: Gráfico de Barras
+ * @see US-022: Gráfico de Pizza/Donut
  */
 
 import { describe, it, expect } from "vitest";
-import { generateChart, type GenerateChartInput } from "../../tools/generate-chart.tool";
+import { generateChart, type GenerateChartInput } from "../../tools/generate-chart.tool.js";
 
 describe("generate_chart tool", () => {
   describe("generateChart", () => {
@@ -183,8 +186,8 @@ describe("generate_chart tool", () => {
 
       expect(result.success).toBe(true);
       expect(result.chart?.series).toHaveLength(2);
-      expect(result.chart?.series?.[0].dataKey).toBe("value");
-      expect(result.chart?.series?.[1].dataKey).toBe("value2");
+      expect(result.chart?.series?.[0]?.dataKey).toBe("value");
+      expect(result.chart?.series?.[1]?.dataKey).toBe("value2");
     });
 
     it("should fail when no data is provided", () => {
@@ -234,8 +237,9 @@ describe("generate_chart tool", () => {
 
       expect(result.success).toBe(true);
       expect(result.chart?.createdAt).toBeDefined();
-      expect(result.chart?.createdAt >= before).toBe(true);
-      expect(result.chart?.createdAt <= after).toBe(true);
+      const createdAt = result.chart!.createdAt;
+      expect(createdAt >= before).toBe(true);
+      expect(createdAt <= after).toBe(true);
     });
 
     it("should generate valid markdown format", () => {
@@ -256,8 +260,9 @@ describe("generate_chart tool", () => {
       // Extract JSON from markdown and validate
       const jsonMatch = result.markdown?.match(/:::chart\n([\s\S]*?)\n:::/);
       expect(jsonMatch).toBeDefined();
+      expect(jsonMatch?.[1]).toBeDefined();
 
-      const parsed = JSON.parse(jsonMatch![1]);
+      const parsed = JSON.parse(jsonMatch![1]!);
       expect(parsed.type).toBe("pie");
       expect(parsed.title).toBe("Markdown Test");
     });
@@ -295,6 +300,352 @@ describe("generate_chart tool", () => {
       expect(result.success).toBe(true);
       expect(result.chart?.showLegend).toBe(true);
       expect(result.chart?.showTooltip).toBe(true);
+    });
+  });
+
+  // US-020: Line chart features
+  describe("US-020: Line chart features", () => {
+    it("should support enableBrush option for line charts", () => {
+      const input: GenerateChartInput = {
+        type: "line",
+        title: "Line Chart with Brush",
+        data: Array.from({ length: 20 }, (_, i) => ({
+          name: `Day ${i + 1}`,
+          value: Math.floor(Math.random() * 100),
+        })),
+        enableBrush: true,
+        showLegend: true,
+        showTooltip: true,
+      };
+
+      const result = generateChart(input);
+
+      expect(result.success).toBe(true);
+      expect(result.chart?.enableBrush).toBe(true);
+    });
+
+    it("should support enableBrush option for area charts", () => {
+      const input: GenerateChartInput = {
+        type: "area",
+        title: "Area Chart with Brush",
+        data: Array.from({ length: 15 }, (_, i) => ({
+          name: `Week ${i + 1}`,
+          value: i * 10,
+        })),
+        enableBrush: true,
+        showLegend: true,
+        showTooltip: true,
+      };
+
+      const result = generateChart(input);
+
+      expect(result.success).toBe(true);
+      expect(result.chart?.enableBrush).toBe(true);
+      expect(result.chart?.type).toBe("area");
+    });
+
+    it("should allow disabling brush explicitly", () => {
+      const input: GenerateChartInput = {
+        type: "line",
+        title: "Line Chart without Brush",
+        data: Array.from({ length: 20 }, (_, i) => ({
+          name: `Day ${i + 1}`,
+          value: i,
+        })),
+        enableBrush: false,
+        showLegend: true,
+        showTooltip: true,
+      };
+
+      const result = generateChart(input);
+
+      expect(result.success).toBe(true);
+      expect(result.chart?.enableBrush).toBe(false);
+    });
+  });
+
+  // US-021: Bar chart features
+  describe("US-021: Bar chart features", () => {
+    it("should support horizontal bar layout", () => {
+      const input: GenerateChartInput = {
+        type: "bar",
+        title: "Horizontal Bar Chart",
+        data: [
+          { name: "Project A", value: 100 },
+          { name: "Project B", value: 75 },
+          { name: "Project C", value: 50 },
+        ],
+        barLayout: "horizontal",
+        showLegend: true,
+        showTooltip: true,
+      };
+
+      const result = generateChart(input);
+
+      expect(result.success).toBe(true);
+      expect(result.chart?.barLayout).toBe("horizontal");
+    });
+
+    it("should support vertical bar layout (default)", () => {
+      const input: GenerateChartInput = {
+        type: "bar",
+        title: "Vertical Bar Chart",
+        data: [
+          { name: "A", value: 100 },
+          { name: "B", value: 200 },
+        ],
+        barLayout: "vertical",
+        showLegend: true,
+        showTooltip: true,
+      };
+
+      const result = generateChart(input);
+
+      expect(result.success).toBe(true);
+      expect(result.chart?.barLayout).toBe("vertical");
+    });
+
+    it("should support stacked bar mode", () => {
+      const input: GenerateChartInput = {
+        type: "bar",
+        title: "Stacked Bar Chart",
+        data: [
+          { name: "Q1", value: 100, value2: 50 },
+          { name: "Q2", value: 150, value2: 75 },
+          { name: "Q3", value: 200, value2: 100 },
+        ],
+        series: [
+          { dataKey: "value", name: "Passed" },
+          { dataKey: "value2", name: "Failed" },
+        ],
+        barStackMode: "stacked",
+        showLegend: true,
+        showTooltip: true,
+      };
+
+      const result = generateChart(input);
+
+      expect(result.success).toBe(true);
+      expect(result.chart?.barStackMode).toBe("stacked");
+    });
+
+    it("should support percent bar mode", () => {
+      const input: GenerateChartInput = {
+        type: "bar",
+        title: "Percent Bar Chart",
+        data: [
+          { name: "Team A", value: 80, value2: 20 },
+          { name: "Team B", value: 60, value2: 40 },
+        ],
+        series: [
+          { dataKey: "value", name: "Pass" },
+          { dataKey: "value2", name: "Fail" },
+        ],
+        barStackMode: "percent",
+        showLegend: true,
+        showTooltip: true,
+      };
+
+      const result = generateChart(input);
+
+      expect(result.success).toBe(true);
+      expect(result.chart?.barStackMode).toBe("percent");
+    });
+
+    it("should support grouped bar mode (default)", () => {
+      const input: GenerateChartInput = {
+        type: "bar",
+        title: "Grouped Bar Chart",
+        data: [
+          { name: "Jan", value: 100, value2: 80 },
+          { name: "Feb", value: 120, value2: 90 },
+        ],
+        series: [
+          { dataKey: "value", name: "Automated" },
+          { dataKey: "value2", name: "Manual" },
+        ],
+        barStackMode: "grouped",
+        showLegend: true,
+        showTooltip: true,
+      };
+
+      const result = generateChart(input);
+
+      expect(result.success).toBe(true);
+      expect(result.chart?.barStackMode).toBe("grouped");
+    });
+
+    it("should support showing bar labels", () => {
+      const input: GenerateChartInput = {
+        type: "bar",
+        title: "Bar Chart with Labels",
+        data: [
+          { name: "A", value: 100 },
+          { name: "B", value: 200 },
+          { name: "C", value: 150 },
+        ],
+        showBarLabels: true,
+        showLegend: true,
+        showTooltip: true,
+      };
+
+      const result = generateChart(input);
+
+      expect(result.success).toBe(true);
+      expect(result.chart?.showBarLabels).toBe(true);
+    });
+
+    it("should support horizontal stacked bar with labels", () => {
+      const input: GenerateChartInput = {
+        type: "bar",
+        title: "Full Featured Bar Chart",
+        data: [
+          { name: "Sprint 1", value: 50, value2: 30, value3: 20 },
+          { name: "Sprint 2", value: 60, value2: 25, value3: 15 },
+        ],
+        series: [
+          { dataKey: "value", name: "Passed" },
+          { dataKey: "value2", name: "Failed" },
+          { dataKey: "value3", name: "Blocked" },
+        ],
+        barLayout: "horizontal",
+        barStackMode: "stacked",
+        showBarLabels: true,
+        showLegend: true,
+        showTooltip: true,
+      };
+
+      const result = generateChart(input);
+
+      expect(result.success).toBe(true);
+      expect(result.chart?.barLayout).toBe("horizontal");
+      expect(result.chart?.barStackMode).toBe("stacked");
+      expect(result.chart?.showBarLabels).toBe(true);
+    });
+  });
+
+  // US-022: Pie/Donut chart features
+  describe("US-022: Pie/Donut chart features", () => {
+    it("should support showCenterValue for donut charts", () => {
+      const input: GenerateChartInput = {
+        type: "donut",
+        title: "Donut with Center Value",
+        data: [
+          { name: "Passed", value: 85 },
+          { name: "Failed", value: 15 },
+        ],
+        showCenterValue: true,
+        showLegend: true,
+        showTooltip: true,
+      };
+
+      const result = generateChart(input);
+
+      expect(result.success).toBe(true);
+      expect(result.chart?.showCenterValue).toBe(true);
+    });
+
+    it("should support centerLabel for donut charts", () => {
+      const input: GenerateChartInput = {
+        type: "donut",
+        title: "Donut with Label",
+        data: [
+          { name: "Active", value: 100 },
+          { name: "Inactive", value: 50 },
+        ],
+        showCenterValue: true,
+        centerLabel: "Total Tests",
+        showLegend: true,
+        showTooltip: true,
+      };
+
+      const result = generateChart(input);
+
+      expect(result.success).toBe(true);
+      expect(result.chart?.centerLabel).toBe("Total Tests");
+    });
+
+    it("should support custom centerValue", () => {
+      const input: GenerateChartInput = {
+        type: "donut",
+        title: "Donut with Custom Value",
+        data: [
+          { name: "Passed", value: 85 },
+          { name: "Failed", value: 15 },
+        ],
+        showCenterValue: true,
+        centerValue: "85%",
+        centerLabel: "Pass Rate",
+        showLegend: true,
+        showTooltip: true,
+      };
+
+      const result = generateChart(input);
+
+      expect(result.success).toBe(true);
+      expect(result.chart?.centerValue).toBe("85%");
+      expect(result.chart?.centerLabel).toBe("Pass Rate");
+    });
+
+    it("should support numeric centerValue", () => {
+      const input: GenerateChartInput = {
+        type: "donut",
+        title: "Donut with Numeric Center",
+        data: [
+          { name: "A", value: 30 },
+          { name: "B", value: 70 },
+        ],
+        showCenterValue: true,
+        centerValue: 1500,
+        centerLabel: "Total",
+        showLegend: true,
+        showTooltip: true,
+      };
+
+      const result = generateChart(input);
+
+      expect(result.success).toBe(true);
+      expect(result.chart?.centerValue).toBe(1500);
+    });
+
+    it("should allow disabling center value explicitly", () => {
+      const input: GenerateChartInput = {
+        type: "donut",
+        title: "Donut without Center",
+        data: [
+          { name: "X", value: 50 },
+          { name: "Y", value: 50 },
+        ],
+        showCenterValue: false,
+        showLegend: true,
+        showTooltip: true,
+      };
+
+      const result = generateChart(input);
+
+      expect(result.success).toBe(true);
+      expect(result.chart?.showCenterValue).toBe(false);
+    });
+
+    it("should work for pie chart without center value", () => {
+      const input: GenerateChartInput = {
+        type: "pie",
+        title: "Regular Pie Chart",
+        data: [
+          { name: "A", value: 33 },
+          { name: "B", value: 33 },
+          { name: "C", value: 34 },
+        ],
+        showCenterValue: false,
+        showLegend: true,
+        showTooltip: true,
+      };
+
+      const result = generateChart(input);
+
+      expect(result.success).toBe(true);
+      expect(result.chart?.type).toBe("pie");
+      expect(result.chart?.showCenterValue).toBe(false);
     });
   });
 });

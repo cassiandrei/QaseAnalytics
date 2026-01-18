@@ -152,7 +152,10 @@ export class QaseAgent {
       memory: this.memory.createBufferMemory(),
       verbose: this.config.verbose,
       returnIntermediateSteps: true,
-      maxIterations: 5,
+      // Increased from 5 to 15 to support complex queries like:
+      // - Evolution charts (needs get_run_results for multiple runs)
+      // - Multi-step analysis (list projects -> get runs -> get results -> generate chart)
+      maxIterations: 15,
       handleParsingErrors: (error) => {
         console.error("Agent parsing error:", error);
         return FALLBACK_RESPONSE_PROMPT;

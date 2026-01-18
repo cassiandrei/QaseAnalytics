@@ -26,10 +26,11 @@ app.use(
   })
 );
 
-// Temporary middleware to read X-User-Id header
+// Temporary middleware to read X-User-Id header (case-insensitive)
 // TODO: Replace with proper JWT authentication (US-038/US-039)
 app.use("/api/*", async (c, next) => {
-  const userId = c.req.header("X-User-Id");
+  // Accept both X-User-Id and X-User-ID (HTTP headers are case-insensitive)
+  const userId = c.req.header("X-User-Id") || c.req.header("X-User-ID");
   if (userId) {
     c.set("userId", userId);
   }
