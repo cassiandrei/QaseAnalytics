@@ -28,7 +28,7 @@ vi.mock("../../lib/env.js", () => ({
   },
 }));
 
-// Mock do agent - stores reference to mock functions
+// Mock do agent e orchestrator - stores reference to mock functions
 vi.mock("../../agents/index.js", () => {
   const chat = vi.fn();
   const getInfo = vi.fn(() => ({
@@ -46,9 +46,30 @@ vi.mock("../../agents/index.js", () => {
     clearHistory: vi.fn(),
   };
 
+  // Mock do orchestrator
+  const runOrchestrator = vi.fn().mockResolvedValue({
+    response: "Mocked orchestrator response",
+    needsProjectSelection: false,
+    projects: undefined,
+    toolsUsed: ["list_projects"],
+    durationMs: 150,
+  });
+
+  const runOrchestratorStream = vi.fn();
+
+  const projectContextStore = {
+    getProject: vi.fn().mockReturnValue(null),
+    setProject: vi.fn(),
+    clearProject: vi.fn().mockReturnValue(true),
+    clearAll: vi.fn(),
+  };
+
   return {
     getOrCreateAgent: vi.fn(() => agentMock),
     removeAgentFromCache: vi.fn(),
+    runOrchestrator,
+    runOrchestratorStream,
+    projectContextStore,
   };
 });
 
@@ -70,7 +91,7 @@ vi.mock("../../agents/memory.js", () => {
 // Import routes after mocks
 import { chatRoutes } from "../../routes/chat.js";
 import { prisma } from "../../lib/prisma.js";
-import { getOrCreateAgent } from "../../agents/index.js";
+import { getOrCreateAgent, runOrchestrator, projectContextStore } from "../../agents/index.js";
 import { globalMemoryStore } from "../../agents/memory.js";
 
 // Helper to get mocked agent
@@ -89,6 +110,11 @@ function getMockedMemorySession() {
     getMessages: Mock;
     clear: Mock;
   };
+}
+
+// Helper to get mocked orchestrator
+function getMockedOrchestrator() {
+  return runOrchestrator as Mock;
 }
 
 describe("Chat Routes Integration", () => {
@@ -121,10 +147,10 @@ describe("Chat Routes Integration", () => {
 
   describe("POST /api/chat/message", () => {
     it("should process message and return response", async () => {
-      const agent = getMockedAgent();
-      agent.chat.mockResolvedValueOnce({
-        output: "Você tem 3 projetos no Qase.",
-        chatHistory: [],
+      const orchestrator = getMockedOrchestrator();
+      orchestrator.mockResolvedValueOnce({
+        response: "Você tem 3 projetos no Qase.",
+        needsProjectSelection: false,
         toolsUsed: ["list_projects"],
         durationMs: 1200,
       });
@@ -143,7 +169,7 @@ describe("Chat Routes Integration", () => {
 
       expect(res.status).toBe(200);
 
-      const data = await res.json();
+      const data = await res.json() as { success: boolean; message: { content: string; role: string }; toolsUsed: string[]; durationMs: number };
       expect(data.success).toBe(true);
       expect(data.message.content).toBe("Você tem 3 projetos no Qase.");
       expect(data.message.role).toBe("assistant");
@@ -218,9 +244,9 @@ describe("Chat Routes Integration", () => {
       expect(data.error).toContain("connect your Qase account");
     });
 
-    it("should handle agent errors gracefully", async () => {
-      const agent = getMockedAgent();
-      agent.chat.mockRejectedValueOnce(new Error("Agent error"));
+    it("should handle orchestrator errors gracefully", async () => {
+      const orchestrator = getMockedOrchestrator();
+      orchestrator.mockRejectedValueOnce(new Error("Orchestrator error"));
 
       const res = await app.request("/api/chat/message", {
         method: "POST",
@@ -235,15 +261,15 @@ describe("Chat Routes Integration", () => {
 
       expect(res.status).toBe(400);
 
-      const data = await res.json();
+      const data = await res.json() as { success: boolean };
       expect(data.success).toBe(false);
     });
 
     it("should process message without projectCode", async () => {
-      const agent = getMockedAgent();
-      agent.chat.mockResolvedValueOnce({
-        output: "Response without project context",
-        chatHistory: [],
+      const orchestrator = getMockedOrchestrator();
+      orchestrator.mockResolvedValueOnce({
+        response: "Response without project context",
+        needsProjectSelection: false,
         toolsUsed: [],
         durationMs: 500,
       });
@@ -261,7 +287,7 @@ describe("Chat Routes Integration", () => {
 
       expect(res.status).toBe(200);
 
-      const data = await res.json();
+      const data = await res.json() as { success: boolean };
       expect(data.success).toBe(true);
     });
   });
@@ -492,10 +518,10 @@ describe("Chat Routes - Natural Language Processing", () => {
   });
 
   it("should process Portuguese questions", async () => {
-    const agent = getMockedAgent();
-    agent.chat.mockResolvedValueOnce({
-      output: "A taxa de falha do projeto GV nos últimos 30 dias é de 15%.",
-      chatHistory: [],
+    const orchestrator = getMockedOrchestrator();
+    orchestrator.mockResolvedValueOnce({
+      response: "A taxa de falha do projeto GV nos últimos 30 dias é de 15%.",
+      needsProjectSelection: false,
       toolsUsed: ["get_test_runs", "get_run_results"],
       durationMs: 2500,
     });
@@ -514,18 +540,18 @@ describe("Chat Routes - Natural Language Processing", () => {
 
     expect(res.status).toBe(200);
 
-    const data = await res.json();
+    const data = await res.json() as { success: boolean; message: { content: string }; toolsUsed: string[] };
     expect(data.success).toBe(true);
     expect(data.message.content).toContain("taxa de falha");
     expect(data.toolsUsed).toContain("get_test_runs");
   });
 
   it("should handle comparison queries", async () => {
-    const agent = getMockedAgent();
-    agent.chat.mockResolvedValueOnce({
-      output:
+    const orchestrator = getMockedOrchestrator();
+    orchestrator.mockResolvedValueOnce({
+      response:
         "Comparando os projetos: Auth tem 85% de cobertura, Payments tem 72%, Notifications tem 68%.",
-      chatHistory: [],
+      needsProjectSelection: false,
       toolsUsed: ["list_projects", "get_test_cases"],
       durationMs: 3500,
     });
@@ -543,17 +569,17 @@ describe("Chat Routes - Natural Language Processing", () => {
 
     expect(res.status).toBe(200);
 
-    const data = await res.json();
+    const data = await res.json() as { success: boolean; message: { content: string } };
     expect(data.success).toBe(true);
     expect(data.message.content).toContain("Comparando");
   });
 
   it("should provide fallback for unclear questions", async () => {
-    const agent = getMockedAgent();
-    agent.chat.mockResolvedValueOnce({
-      output:
+    const orchestrator = getMockedOrchestrator();
+    orchestrator.mockResolvedValueOnce({
+      response:
         "Desculpe, não entendi sua pergunta. Você pode tentar perguntar sobre projetos, casos de teste, execuções ou métricas de qualidade.",
-      chatHistory: [],
+      needsProjectSelection: false,
       toolsUsed: [],
       durationMs: 800,
     });
@@ -571,9 +597,9 @@ describe("Chat Routes - Natural Language Processing", () => {
 
     expect(res.status).toBe(200);
 
-    const data = await res.json();
+    const data = await res.json() as { success: boolean; message: { content: string } };
     expect(data.success).toBe(true);
-    // Agent should still respond, even if it doesn't understand
+    // Orchestrator should still respond, even if it doesn't understand
     expect(data.message.content).toBeDefined();
   });
 });

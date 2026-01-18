@@ -35,3 +35,15 @@ export {
   type AgentResponse,
   type AgentContext,
 } from "./qase-agent.js";
+
+// Orchestrator (LangGraph)
+export {
+  runOrchestrator,
+  runOrchestratorStream,
+  createOrchestratorGraph,
+  projectContextStore,
+  type OrchestratorConfig,
+  type OrchestratorResult,
+  type OrchestratorStreamCallbacks,
+  type Project,
+} from "./orchestrator.js";

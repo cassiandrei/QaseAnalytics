@@ -23,14 +23,15 @@
   "dependencies": {
     "@hono/node-server": "^1.13.7",
     "@hono/zod-validator": "^0.7.6",
-    "@langchain/core": "^0.3.26",
-    "@langchain/openai": "^0.3.16",
+    "@langchain/core": "^0.3.80",
+    "@langchain/langgraph": "^0.2.74",
+    "@langchain/openai": "^0.3.17",
     "@prisma/client": "^6.1.0",
     "@qase-analytics/types": "workspace:*",
     "@qase-analytics/utils": "workspace:*",
     "hono": "^4.6.14",
     "ioredis": "^5.4.2",
-    "langchain": "^0.3.11",
+    "langchain": "^0.3.37",
     "openai": "^4.77.0",
     "zod": "^3.24.1"
   },

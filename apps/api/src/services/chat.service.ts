@@ -12,7 +12,13 @@ import { decrypt } from "../lib/crypto.js";
 import {
   getOrCreateAgent,
   removeAgentFromCache,
+  runOrchestrator,
+  runOrchestratorStream,
+  projectContextStore,
   type QaseAgentConfig,
+  type OrchestratorConfig,
+  type OrchestratorStreamCallbacks,
+  type Project,
 } from "../agents/index.js";
 import { globalMemoryStore } from "../agents/memory.js";
 import { env } from "../lib/env.js";
@@ -41,6 +47,10 @@ export interface SendMessageResult {
   error?: string;
   toolsUsed?: string[];
   durationMs?: number;
+  /** Flag indicando se precisa selecionar projeto */
+  needsProjectSelection?: boolean;
+  /** Lista de projetos disponíveis (quando needsProjectSelection=true) */
+  availableProjects?: Project[];
 }
 
 /** Histórico de chat */
@@ -153,18 +163,15 @@ export async function sendMessage(input: SendMessageInput): Promise<SendMessageR
   }
 
   try {
-    // Obtém ou cria o agente para este usuário/projeto
-    const config: QaseAgentConfig = {
+    // Usa o orchestrator para processar a mensagem
+    const config: OrchestratorConfig = {
       openAIApiKey: env.OPENAI_API_KEY,
       qaseToken,
       userId,
       projectCode,
     };
 
-    const agent = getOrCreateAgent(config);
-
-    // Processa a mensagem
-    const response = await agent.chat(message);
+    const result = await runOrchestrator(config, message);
 
     // Verifica timeout (10 segundos - critério de aceitação)
     const totalDuration = Date.now() - startTime;
@@ -176,17 +183,19 @@ export async function sendMessage(input: SendMessageInput): Promise<SendMessageR
     const responseMessage: ChatMessage = {
       id: generateMessageId(),
       role: "assistant",
-      content: response.output,
+      content: result.response,
       timestamp: new Date(),
-      toolsUsed: response.toolsUsed,
-      durationMs: response.durationMs,
+      toolsUsed: result.toolsUsed,
+      durationMs: result.durationMs,
     };
 
     return {
       success: true,
       message: responseMessage,
-      toolsUsed: response.toolsUsed,
-      durationMs: response.durationMs,
+      toolsUsed: result.toolsUsed,
+      durationMs: result.durationMs,
+      needsProjectSelection: result.needsProjectSelection,
+      availableProjects: result.projects,
     };
   } catch (error) {
     console.error("Error processing chat message:", error);
@@ -259,6 +268,9 @@ export async function clearChatHistory(userId: string, projectCode?: string): Pr
   const memory = globalMemoryStore.getSession(userId);
   await memory.clear();
 
+  // Limpa contexto de projeto do orchestrator
+  projectContextStore.clearProject(userId);
+
   // Remove agente do cache para forçar nova criação
   removeAgentFromCache(userId, projectCode);
 }
@@ -283,12 +295,15 @@ export async function getChatSessionStatus(
     };
   }
 
+  // Recupera projeto do contexto se não fornecido
+  const currentProject = projectCode ?? projectContextStore.getProject(userId);
+
   // Obtém informações do agente se existir
   const config: QaseAgentConfig = {
     openAIApiKey: env.OPENAI_API_KEY,
     qaseToken,
     userId,
-    projectCode,
+    projectCode: currentProject ?? undefined,
   };
 
   const agent = getOrCreateAgent(config);
@@ -300,7 +315,7 @@ export async function getChatSessionStatus(
 
   return {
     active: true,
-    projectCode: agentInfo.projectCode !== "all" ? agentInfo.projectCode : undefined,
+    projectCode: currentProject ?? (agentInfo.projectCode !== "all" ? agentInfo.projectCode : undefined),
     messageCount: messages.length,
     agentInfo: {
       model: agentInfo.model,
@@ -336,7 +351,10 @@ export async function setProjectForChat(
     };
   }
 
-  // Obtém o agente e atualiza o projeto
+  // Atualiza o projeto no context store do orchestrator
+  projectContextStore.setProject(userId, projectCode);
+
+  // Obtém o agente e atualiza o projeto (para compatibilidade)
   const config: QaseAgentConfig = {
     openAIApiKey: env.OPENAI_API_KEY,
     qaseToken,
@@ -367,7 +385,14 @@ export interface StreamCallbacks {
   onToolStart?: (toolName: string) => void | Promise<void>;
   onToolEnd?: (toolName: string) => void | Promise<void>;
   onError?: (error: string) => void | Promise<void>;
-  onDone?: (result: { toolsUsed: string[]; durationMs: number }) => void | Promise<void>;
+  onDone?: (result: {
+    toolsUsed: string[];
+    durationMs: number;
+    needsProjectSelection?: boolean;
+    availableProjects?: Project[];
+  }) => void | Promise<void>;
+  /** Callback quando precisa de seleção de projeto */
+  onNeedsProjectSelection?: (projects: Project[]) => void | Promise<void>;
 }
 
 /** Resultado da validação de input */
@@ -427,7 +452,6 @@ export async function sendMessageStream(
   callbacks: StreamCallbacks
 ): Promise<void> {
   const { userId, message, projectCode } = input;
-  const startTime = Date.now();
 
   // Valida entrada
   const validation = await validateMessageInput(input);
@@ -437,43 +461,32 @@ export async function sendMessageStream(
   }
 
   try {
-    // Obtém ou cria o agente para este usuário/projeto
-    const config: QaseAgentConfig = {
+    // Usa o orchestrator com streaming
+    const config: OrchestratorConfig = {
       openAIApiKey: env.OPENAI_API_KEY!,
       qaseToken: validation.qaseToken!,
       userId,
       projectCode,
     };
 
-    const agent = getOrCreateAgent(config);
-
-    // Processa a mensagem com streaming real
-    const response = await agent.chatStream(
-      message,
-      // onToken - emite cada token conforme gerado pelo LLM
-      (token: string) => {
-        callbacks.onToken(token);
+    // Adapta callbacks para o orchestrator
+    const orchestratorCallbacks: OrchestratorStreamCallbacks = {
+      onToken: callbacks.onToken,
+      onToolStart: callbacks.onToolStart,
+      onToolEnd: callbacks.onToolEnd,
+      onError: callbacks.onError,
+      onNeedsProjectSelection: callbacks.onNeedsProjectSelection,
+      onDone: async (result) => {
+        await callbacks.onDone?.({
+          toolsUsed: result.toolsUsed,
+          durationMs: result.durationMs,
+          needsProjectSelection: result.needsProjectSelection,
+          availableProjects: result.projects,
+        });
       },
-      // onToolStart
-      (toolName: string) => {
-        callbacks.onToolStart?.(toolName);
-      },
-      // onToolEnd
-      (toolName: string) => {
-        callbacks.onToolEnd?.(toolName);
-      }
-    );
+    };
 
-    // Verifica timeout (10 segundos - critério de aceitação)
-    const totalDuration = Date.now() - startTime;
-    if (totalDuration > 10000) {
-      console.warn(`Chat streaming response took ${totalDuration}ms (> 10s threshold)`);
-    }
-
-    await callbacks.onDone?.({
-      toolsUsed: response.toolsUsed,
-      durationMs: response.durationMs,
-    });
+    await runOrchestratorStream(config, message, orchestratorCallbacks);
   } catch (error) {
     console.error("Error in streaming chat message:", error);
 

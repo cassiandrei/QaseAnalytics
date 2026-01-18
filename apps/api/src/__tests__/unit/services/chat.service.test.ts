@@ -27,7 +27,7 @@ vi.mock("../../../lib/env.js", () => ({
   },
 }));
 
-// Mock do agent - stores reference to mock functions
+// Mock do agent e orchestrator - stores reference to mock functions
 vi.mock("../../../agents/index.js", () => {
   const chat = vi.fn();
   const getInfo = vi.fn(() => ({
@@ -45,9 +45,30 @@ vi.mock("../../../agents/index.js", () => {
     clearHistory: vi.fn(),
   };
 
+  // Mock do orchestrator
+  const runOrchestrator = vi.fn().mockResolvedValue({
+    response: "Mocked orchestrator response",
+    needsProjectSelection: false,
+    projects: undefined,
+    toolsUsed: ["list_projects"],
+    durationMs: 150,
+  });
+
+  const runOrchestratorStream = vi.fn();
+
+  const projectContextStore = {
+    getProject: vi.fn().mockReturnValue(null),
+    setProject: vi.fn(),
+    clearProject: vi.fn().mockReturnValue(true),
+    clearAll: vi.fn(),
+  };
+
   return {
     getOrCreateAgent: vi.fn(() => agentMock),
     removeAgentFromCache: vi.fn(),
+    runOrchestrator,
+    runOrchestratorStream,
+    projectContextStore,
   };
 });
 
@@ -75,7 +96,11 @@ import {
   setProjectForChat,
   type SendMessageInput,
 } from "../../../services/chat.service.js";
-import { getOrCreateAgent, removeAgentFromCache } from "../../../agents/index.js";
+import {
+  getOrCreateAgent,
+  removeAgentFromCache,
+  runOrchestrator,
+} from "../../../agents/index.js";
 import { globalMemoryStore } from "../../../agents/memory.js";
 import { prisma } from "../../../lib/prisma.js";
 
@@ -95,6 +120,11 @@ function getMockedMemorySession() {
     getMessages: Mock;
     clear: Mock;
   };
+}
+
+// Helper to get mocked orchestrator
+function getMockedOrchestrator() {
+  return runOrchestrator as Mock;
 }
 
 describe("ChatService", () => {
@@ -119,10 +149,10 @@ describe("ChatService", () => {
     };
 
     it("should process message successfully", async () => {
-      const agent = getMockedAgent();
-      agent.chat.mockResolvedValueOnce({
-        output: "Você tem 5 projetos: Project A, Project B...",
-        chatHistory: [],
+      const orchestrator = getMockedOrchestrator();
+      orchestrator.mockResolvedValueOnce({
+        response: "Você tem 5 projetos: Project A, Project B...",
+        needsProjectSelection: false,
         toolsUsed: ["list_projects"],
         durationMs: 1500,
       });
@@ -178,28 +208,31 @@ describe("ChatService", () => {
       expect(result.error).toBe("Please connect your Qase account first");
     });
 
-    it("should create agent with correct config", async () => {
-      const agent = getMockedAgent();
-      agent.chat.mockResolvedValueOnce({
-        output: "Response",
-        chatHistory: [],
+    it("should call orchestrator with correct config", async () => {
+      const orchestrator = getMockedOrchestrator();
+      orchestrator.mockResolvedValueOnce({
+        response: "Response",
+        needsProjectSelection: false,
         toolsUsed: [],
         durationMs: 100,
       });
 
       await sendMessage(validInput);
 
-      expect(getOrCreateAgent).toHaveBeenCalledWith({
-        openAIApiKey: "sk-test-key",
-        qaseToken: "decrypted-encrypted-token",
-        userId: "user-123",
-        projectCode: "DEMO",
-      });
+      expect(orchestrator).toHaveBeenCalledWith(
+        {
+          openAIApiKey: "sk-test-key",
+          qaseToken: "decrypted-encrypted-token",
+          userId: "user-123",
+          projectCode: "DEMO",
+        },
+        "Quais são meus projetos?"
+      );
     });
 
-    it("should handle agent errors gracefully", async () => {
-      const agent = getMockedAgent();
-      agent.chat.mockRejectedValueOnce(new Error("Agent error"));
+    it("should handle orchestrator errors gracefully", async () => {
+      const orchestrator = getMockedOrchestrator();
+      orchestrator.mockRejectedValueOnce(new Error("Orchestrator error"));
 
       const result = await sendMessage(validInput);
 
@@ -208,8 +241,8 @@ describe("ChatService", () => {
     });
 
     it("should handle rate limit errors", async () => {
-      const agent = getMockedAgent();
-      agent.chat.mockRejectedValueOnce(new Error("429 rate_limit exceeded"));
+      const orchestrator = getMockedOrchestrator();
+      orchestrator.mockRejectedValueOnce(new Error("429 rate_limit exceeded"));
 
       const result = await sendMessage(validInput);
 
@@ -218,8 +251,8 @@ describe("ChatService", () => {
     });
 
     it("should handle timeout errors", async () => {
-      const agent = getMockedAgent();
-      agent.chat.mockRejectedValueOnce(new Error("timeout exceeded"));
+      const orchestrator = getMockedOrchestrator();
+      orchestrator.mockRejectedValueOnce(new Error("timeout exceeded"));
 
       const result = await sendMessage(validInput);
 
@@ -228,10 +261,10 @@ describe("ChatService", () => {
     });
 
     it("should include tools used in response", async () => {
-      const agent = getMockedAgent();
-      agent.chat.mockResolvedValueOnce({
-        output: "Response with multiple tools",
-        chatHistory: [],
+      const orchestrator = getMockedOrchestrator();
+      orchestrator.mockResolvedValueOnce({
+        response: "Response with multiple tools",
+        needsProjectSelection: false,
         toolsUsed: ["list_projects", "get_test_cases", "get_test_runs"],
         durationMs: 3000,
       });
@@ -346,16 +379,17 @@ describe("ChatService - Message validation", () => {
       qaseApiToken: "encrypted-token",
       qaseTokenValid: true,
     });
-    const agent = getMockedAgent();
-    agent.chat.mockResolvedValue({
-      output: "Response",
-      chatHistory: [],
-      toolsUsed: [],
-      durationMs: 100,
-    });
   });
 
   it("should allow messages up to 2000 characters", async () => {
+    const orchestrator = getMockedOrchestrator();
+    orchestrator.mockResolvedValue({
+      response: "Response",
+      needsProjectSelection: false,
+      toolsUsed: [],
+      durationMs: 100,
+    });
+
     const result = await sendMessage({
       userId: "user-123",
       message: "a".repeat(2000),
@@ -385,10 +419,10 @@ describe("ChatService - Response format", () => {
   });
 
   it("should generate unique message IDs", async () => {
-    const agent = getMockedAgent();
-    agent.chat.mockResolvedValue({
-      output: "Response 1",
-      chatHistory: [],
+    const orchestrator = getMockedOrchestrator();
+    orchestrator.mockResolvedValueOnce({
+      response: "Response 1",
+      needsProjectSelection: false,
       toolsUsed: [],
       durationMs: 100,
     });
@@ -398,9 +432,9 @@ describe("ChatService - Response format", () => {
       message: "First message",
     });
 
-    agent.chat.mockResolvedValue({
-      output: "Response 2",
-      chatHistory: [],
+    orchestrator.mockResolvedValueOnce({
+      response: "Response 2",
+      needsProjectSelection: false,
       toolsUsed: [],
       durationMs: 100,
     });
@@ -410,14 +444,16 @@ describe("ChatService - Response format", () => {
       message: "Second message",
     });
 
+    expect(result1.message?.id).toBeDefined();
+    expect(result2.message?.id).toBeDefined();
     expect(result1.message?.id).not.toBe(result2.message?.id);
   });
 
   it("should include timestamp in response", async () => {
-    const agent = getMockedAgent();
-    agent.chat.mockResolvedValue({
-      output: "Response",
-      chatHistory: [],
+    const orchestrator = getMockedOrchestrator();
+    orchestrator.mockResolvedValue({
+      response: "Response",
+      needsProjectSelection: false,
       toolsUsed: [],
       durationMs: 100,
     });
@@ -431,10 +467,10 @@ describe("ChatService - Response format", () => {
   });
 
   it("should include duration in milliseconds", async () => {
-    const agent = getMockedAgent();
-    agent.chat.mockResolvedValue({
-      output: "Response",
-      chatHistory: [],
+    const orchestrator = getMockedOrchestrator();
+    orchestrator.mockResolvedValue({
+      response: "Response",
+      needsProjectSelection: false,
       toolsUsed: [],
       durationMs: 2500,
     });

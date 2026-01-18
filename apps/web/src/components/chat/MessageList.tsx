@@ -15,12 +15,14 @@ export interface MessageListProps {
   messages: ChatMessageType[];
   isStreaming: boolean;
   isLoading: boolean;
+  onSendMessage?: (message: string) => void;
 }
 
 export function MessageList({
   messages,
   isStreaming,
   isLoading,
+  onSendMessage,
 }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -61,10 +63,10 @@ export function MessageList({
 
         {/* Suggestion chips */}
         <div className="flex flex-wrap gap-2 justify-center max-w-md">
-          <SuggestionChip text="Quais projetos eu tenho acesso?" />
-          <SuggestionChip text="Qual o pass rate do último test run?" />
-          <SuggestionChip text="Liste os casos de teste do projeto GV" />
-          <SuggestionChip text="Compare as últimas 3 execuções" />
+          <SuggestionChip text="Quais projetos eu tenho acesso?" onClick={onSendMessage} />
+          <SuggestionChip text="Qual o pass rate do último test run?" onClick={onSendMessage} />
+          <SuggestionChip text="Liste os casos de teste" onClick={onSendMessage} />
+          <SuggestionChip text="Mostre os test runs recentes" onClick={onSendMessage} />
         </div>
       </div>
     );
@@ -130,15 +132,23 @@ export function MessageList({
 /**
  * Suggestion chip component for empty state.
  */
-function SuggestionChip({ text }: { text: string }) {
+function SuggestionChip({
+  text,
+  onClick,
+}: {
+  text: string;
+  onClick?: (message: string) => void;
+}) {
   return (
     <button
       className="
         px-3 py-2 text-sm text-gray-600 bg-gray-100
-        rounded-full hover:bg-gray-200 transition-colors
-        border border-gray-200
+        rounded-full hover:bg-gray-200 hover:text-gray-900
+        transition-colors border border-gray-200
+        cursor-pointer active:scale-95
       "
       type="button"
+      onClick={() => onClick?.(text)}
     >
       {text}
     </button>

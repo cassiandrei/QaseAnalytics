@@ -90,6 +90,7 @@ export function ChatContainer({ userId: propUserId }: ChatContainerProps) {
         messages={messages}
         isStreaming={isStreaming}
         isLoading={isLoading}
+        onSendMessage={handleSend}
       />
 
       {/* Input */}

@@ -98,7 +98,7 @@ export const QaseTestCaseSchema = z.object({
   })).optional(),
   custom_fields: z.array(z.object({
     id: z.number(),
-    title: z.string(),
+    title: z.string().optional(),
     value: z.string().nullable(),
   })).optional(),
 });
@@ -399,7 +399,7 @@ export class QaseClient {
     const url = new URL(`${this.baseUrl}${endpoint}`);
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined) {
+        if (value != null) {
           url.searchParams.append(key, String(value));
         }
       });
@@ -614,8 +614,8 @@ export class QaseClient {
 
     // Adiciona filtros opcionais
     if (search) params.search = search;
-    if (milestoneId !== undefined) params.milestone_id = milestoneId;
-    if (suiteId !== undefined) params.suite_id = suiteId;
+    if (milestoneId != null) params.milestone_id = milestoneId;
+    if (suiteId != null) params.suite_id = suiteId;
     if (severity) params.severity = severity;
     if (priority) params.priority = priority;
     if (type) params.type = type;

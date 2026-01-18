@@ -29,6 +29,21 @@ async function main() {
   // ==========================================================================
   console.log("👤 Creating users...");
 
+  // Test user for development (frontend uses "test-user" as default userId)
+  const testUser = await prisma.user.create({
+    data: {
+      id: "test-user",
+      email: "test@qaseanalytics.com",
+      name: "Test User",
+      // Password: "test123" (bcrypt hash)
+      password: "$2b$10$rQZ5QzX5QzX5QzX5QzX5QuOZzX5QzX5QzX5QzX5QzX5QzX5QzX5Qu",
+      tier: UserTier.PRO,
+      qaseTokenValid: false,
+    },
+  });
+
+  console.log(`  ✓ Created test user: ${testUser.email} (id: ${testUser.id})`);
+
   const demoUser = await prisma.user.create({
     data: {
       email: "demo@qaseanalytics.com",
@@ -259,15 +274,20 @@ async function main() {
   // ==========================================================================
   console.log("\n✅ Seed completed successfully!\n");
   console.log("📊 Summary:");
-  console.log(`   - Users: 2`);
+  console.log(`   - Users: 3`);
   console.log(`   - Widgets: 4`);
   console.log(`   - Dashboards: 1`);
   console.log(`   - Conversations: 1`);
   console.log(`   - Messages: 4`);
 
-  console.log("\n🔐 Demo Credentials:");
-  console.log("   Email: demo@qaseanalytics.com");
-  console.log("   Password: demo123\n");
+  console.log("\n🔐 Credentials:");
+  console.log("   Test User (for frontend): test@qaseanalytics.com (id: test-user)");
+  console.log("   Demo User: demo@qaseanalytics.com / demo123");
+  console.log("\n⚠️  To connect Qase for testing:");
+  console.log(`   curl -X POST http://localhost:3001/api/qase/connect \\`);
+  console.log(`     -H "Content-Type: application/json" \\`);
+  console.log(`     -H "X-User-ID: test-user" \\`);
+  console.log(`     -d '{"token":"YOUR_QASE_API_TOKEN"}'\n`);
 }
 
 main()
