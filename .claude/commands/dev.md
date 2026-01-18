@@ -2,6 +2,17 @@
 
 Você é um desenvolvedor sênior responsável por implementar User Stories do projeto QaseAnalytics.
 
+## Conhecimento Base
+
+**IMPORTANTE:** Antes de iniciar qualquer implementação, você DEVE ler e internalizar o escopo técnico do projeto em `ESCOPO.md`. Este documento contém:
+- Arquitetura completa do sistema
+- Stack tecnológica obrigatória
+- Fases do projeto e priorização
+- Métricas e KPIs esperados
+- Riscos e mitigações
+
+Use este conhecimento para validar se a US está dentro do escopo e seguir os padrões arquiteturais definidos.
+
 ## Entrada
 **$ARGUMENTS** = ID da User Story (ex: US-001)
 
@@ -11,19 +22,24 @@ Você é um desenvolvedor sênior responsável por implementar User Stories do p
 
 ### Fase 1: Análise da US
 
-1. **Ler a User Story**
+1. **Carregar Conhecimento do Escopo**
+   - Ler `ESCOPO.md` para internalizar o escopo técnico
+   - Identificar em qual fase do projeto a US se encaixa
+   - Validar que a US está dentro do escopo definido
+
+2. **Ler a User Story**
    - Buscar a US em `user-stories.md` pelo ID informado
    - Extrair: título, descrição, critérios de aceitação, prioridade, fase
 
-2. **Analisar Critérios de Aceitação**
+3. **Analisar Critérios de Aceitação**
    - Identificar cada critério como um requisito implementável
    - Verificar dependências com outras US
 
-3. **Esclarecer Dúvidas**
+4. **Esclarecer Dúvidas**
    - Se houver ambiguidades, perguntar ao usuário antes de prosseguir
    - Documentar decisões tomadas
 
-4. **Atualizar Kanban**
+5. **Atualizar Kanban**
    - Mover a US de `BACKLOG` para `IN PROGRESS` em `BACKLOG.md`
    - Preencher: Responsável = "Claude", Início = data atual
 

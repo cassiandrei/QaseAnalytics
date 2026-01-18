@@ -141,6 +141,15 @@ QaseAnalytics/
 | 2026-01-18 | Docker Compose para dev local | PostgreSQL + Redis em containers, facilita setup | US-001 |
 | 2026-01-18 | pnpm como package manager | Rápido, eficiente em disco, bom suporte a workspaces | US-001 |
 | 2026-01-18 | Next.js 15 com App Router | SSR, Server Components, TypeScript nativo | US-001 |
+| 2026-01-18 | Prisma 6.x como ORM | Type-safe, migrations automáticas, excelente DX | US-002 |
+| 2026-01-18 | Portas alternativas (5433/6380) | Evitar conflito com outros serviços Docker locais | US-002 |
+| 2026-01-18 | Schema expandido com Conversation/Message | Suporte a histórico de chat persistido | US-002 |
+| 2026-01-18 | AES-256-GCM para encriptação de tokens | Padrão NIST, autenticação integrada, resistente a ataques | US-004 |
+| 2026-01-18 | scrypt para derivação de chave | Resistente a ataques de hardware, parâmetros ajustáveis | US-004 |
+| 2026-01-18 | Retry com exponential backoff | Resiliência contra falhas transientes da API, jitter para evitar thundering herd | US-004, US-059 |
+| 2026-01-18 | Zod para validação de requests | Type-safe, integração com Hono via @hono/zod-validator | US-004 |
+| 2026-01-18 | Redis para cache (ioredis) | Cache de projetos com TTL 5min, cliente singleton | US-005 |
+| 2026-01-18 | LangChain tools para Qase API | DynamicStructuredTool com schema Zod, cache integrado | US-005 |
 | - | Zustand para state management | Simples, performático, sem boilerplate | US-016 |
 | - | Recharts para gráficos | Componentizado, customizável, boa docs | US-020 |
 
@@ -148,76 +157,54 @@ QaseAnalytics/
 
 ## Schemas do Banco de Dados
 
-### Schema Prisma Planejado
+### Schema Prisma Implementado (US-002)
 
-```prisma
-// prisma/schema.prisma
+O schema completo está em `apps/api/prisma/schema.prisma`. Principais modelos:
 
-model User {
-  id          String      @id @default(cuid())
-  email       String      @unique
-  name        String?
-  qaseToken   String?     // Encrypted
-  openaiKey   String?     // Encrypted (BYOK)
-  tier        Tier        @default(FREE)
-  widgets     Widget[]
-  dashboards  Dashboard[]
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-}
+| Model | Descrição | Campos Principais |
+|-------|-----------|-------------------|
+| `User` | Usuário da plataforma | email, tier, qaseApiToken (encrypted), openaiApiKey (BYOK) |
+| `Session` | Sessão JWT | token, expiresAt, userAgent, ipAddress |
+| `Widget` | Widget de visualização | name, query, chartType, chartConfig, filters, refreshInterval |
+| `Dashboard` | Dashboard com layout | name, layout (RGL format), globalFilters, shareToken |
+| `DashboardWidget` | Relação N:N | dashboardId, widgetId, position |
+| `Conversation` | Conversa do chat | title, projectCode |
+| `Message` | Mensagem do chat | role, content, chartData, tokensUsed |
+| `AuditLog` | Log de auditoria | action, resource, details (Enterprise) |
 
-model Widget {
-  id          String      @id @default(cuid())
-  name        String
-  type        ChartType
-  query       String      // Original chat query
-  config      Json        // Chart configuration
-  filters     Json?       // Applied filters
-  user        User        @relation(fields: [userId], references: [id])
-  userId      String
-  dashboards  DashboardWidget[]
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-}
+### Enums
 
-model Dashboard {
-  id          String      @id @default(cuid())
-  name        String
-  description String?
-  layout      Json        // React Grid Layout config
-  user        User        @relation(fields: [userId], references: [id])
-  userId      String
-  widgets     DashboardWidget[]
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-}
-
-model DashboardWidget {
-  id          String      @id @default(cuid())
-  dashboard   Dashboard   @relation(fields: [dashboardId], references: [id])
-  dashboardId String
-  widget      Widget      @relation(fields: [widgetId], references: [id])
-  widgetId    String
-  position    Json        // x, y, w, h
-  createdAt   DateTime    @default(now())
-}
-
-enum Tier {
-  FREE
-  PRO
-  ENTERPRISE
-}
-
-enum ChartType {
-  LINE
-  BAR
-  PIE
-  DONUT
-  HEATMAP
-  TREEMAP
-  AREA
-}
+```typescript
+enum UserTier { FREE, PRO, ENTERPRISE, BYOK }
+enum ChartType { LINE, BAR, PIE, DONUT, AREA, HEATMAP, TREEMAP, TABLE, METRIC }
+enum MessageRole { USER, ASSISTANT, SYSTEM }
 ```
+
+### Comandos de Banco
+
+```bash
+# Iniciar containers
+pnpm docker:up
+
+# Gerar Prisma Client
+pnpm db:generate
+
+# Aplicar schema ao banco
+pnpm db:push
+
+# Popular dados de exemplo
+pnpm db:seed
+
+# Abrir Prisma Studio
+pnpm db:studio
+```
+
+### Configuração de Portas (evitar conflitos)
+
+| Serviço | Porta Padrão | Porta QaseAnalytics |
+|---------|--------------|---------------------|
+| PostgreSQL | 5432 | 5433 |
+| Redis | 6379 | 6380 |
 
 ---
 
@@ -249,13 +236,19 @@ enum ChartType {
 | PATCH | `/api/dashboards/:id` | Atualiza dashboard | US-032 |
 | DELETE | `/api/dashboards/:id` | Remove dashboard | US-030 |
 
-#### Qase Integration
-| Método | Endpoint | Descrição | US |
-|--------|----------|-----------|-----|
-| GET | `/api/qase/projects` | Lista projetos | US-005 |
-| GET | `/api/qase/projects/:code/cases` | Lista casos de teste | US-006 |
-| GET | `/api/qase/projects/:code/runs` | Lista test runs | US-007 |
-| GET | `/api/qase/runs/:id/results` | Lista resultados | US-008 |
+#### Qase Integration (Implementado - US-004)
+| Método | Endpoint | Descrição | US | Status |
+|--------|----------|-----------|-----|--------|
+| POST | `/api/qase/validate` | Valida token sem salvar | US-004 | ✅ |
+| POST | `/api/qase/connect` | Conecta usuário ao Qase | US-004 | ✅ |
+| POST | `/api/qase/disconnect` | Desconecta do Qase | US-004 | ✅ |
+| GET | `/api/qase/status` | Status da conexão | US-004 | ✅ |
+| POST | `/api/qase/revalidate` | Revalida token armazenado | US-004 | ✅ |
+| GET | `/api/qase/projects` | Lista projetos | US-005 | ✅ |
+| GET | `/api/qase/projects/:code` | Detalhes do projeto | US-005 | ✅ |
+| GET | `/api/qase/projects/:code/cases` | Lista casos de teste | US-006 | ⏳ |
+| GET | `/api/qase/projects/:code/runs` | Lista test runs | US-007 | ⏳ |
+| GET | `/api/qase/runs/:id/results` | Lista resultados | US-008 | ⏳ |
 
 ---
 
@@ -279,16 +272,173 @@ enum ChartType {
 
 ## LangChain Tools
 
-### Tools Planejadas para Qase API
+### Tools Implementadas
 
-| Tool | Descrição | US |
-|------|-----------|-----|
-| `list_projects` | Lista projetos do Qase | US-005 |
-| `get_test_cases` | Obtém casos de teste | US-006 |
-| `get_test_runs` | Obtém test runs | US-007 |
-| `get_run_results` | Obtém resultados de um run | US-008 |
-| `get_defects` | Obtém defeitos/bugs | US-009 |
-| `get_test_suites` | Obtém hierarquia de suites | US-010 |
+| Tool | Descrição | US | Status |
+|------|-----------|-----|--------|
+| `list_projects` | Lista projetos do Qase com cache 5min | US-005 | ✅ |
+| `get_test_cases` | Obtém casos de teste | US-006 | ⏳ |
+| `get_test_runs` | Obtém test runs | US-007 | ⏳ |
+| `get_run_results` | Obtém resultados de um run | US-008 | ⏳ |
+| `get_defects` | Obtém defeitos/bugs | US-009 | ⏳ |
+| `get_test_suites` | Obtém hierarquia de suites | US-010 | ⏳ |
+
+### list_projects Tool (US-005)
+
+```typescript
+// Uso com callbacks
+const listProjectsTool = createListProjectsTool(
+  () => userToken,
+  () => userId
+);
+
+// Uso com contexto fixo
+const tool = createListProjectsToolWithContext(token, userId);
+
+// Parâmetros
+interface ListProjectsInput {
+  limit?: number;  // 1-100, default: 100
+  offset?: number; // Paginação, default: 0
+}
+
+// Resultado
+interface ListProjectsResult {
+  success: boolean;
+  total: number;
+  count: number;
+  projects: Array<{
+    code: string;
+    title: string;
+    description: string | null;
+    casesCount?: number;
+    suitesCount?: number;
+  }>;
+  error?: string;
+  cached?: boolean;
+}
+```
+
+---
+
+## Cache (Redis)
+
+### Configuração (US-005)
+
+O cache Redis é opcional e ativado automaticamente quando `REDIS_URL` está configurada.
+
+```bash
+REDIS_URL=redis://localhost:6380
+```
+
+### TTL (Time-To-Live)
+
+| Tipo de Dado | TTL | Constante |
+|--------------|-----|-----------|
+| Lista de projetos | 5 minutos | `CACHE_TTL.PROJECTS` |
+| Casos de teste | 2 minutos | `CACHE_TTL.TEST_CASES` |
+| Resultados | 1 minuto | `CACHE_TTL.RESULTS` |
+
+### Chaves de Cache
+
+```typescript
+// Lista de projetos de um usuário
+CACHE_KEYS.projectList(userId) // "qase:projects:{userId}"
+
+// Projeto específico
+CACHE_KEYS.project(userId, code) // "qase:project:{userId}:{code}"
+```
+
+### Funções de Cache
+
+```typescript
+// Armazenar
+await cacheSet(key, value, ttlSeconds);
+
+// Buscar
+const value = await cacheGet<T>(key);
+
+// Deletar
+await cacheDelete(key);
+
+// Deletar por padrão
+await cacheDeletePattern("qase:projects:*");
+
+// Verificar conexão
+const connected = await isRedisConnected();
+```
+
+### Invalidação Automática
+
+- O cache de projetos é invalidado quando:
+  - Usuário desconecta do Qase (`disconnectQase`)
+  - Chamada explícita a `invalidateProjectsCache`
+
+---
+
+## Segurança
+
+### Encriptação de Tokens (US-004)
+
+Tokens da API Qase são armazenados encriptados usando:
+
+| Componente | Algoritmo | Parâmetros |
+|------------|-----------|------------|
+| Cifra | AES-256-GCM | 256-bit key, 12-byte IV |
+| Derivação de chave | scrypt | N=16384, r=8, p=1 |
+| Salt | Random | 16 bytes |
+| Auth Tag | GCM | 16 bytes |
+
+**Formato do ciphertext:**
+```
+Base64(salt[16] + iv[12] + authTag[16] + encrypted_data)
+```
+
+**Variável de ambiente requerida:**
+```bash
+ENCRYPTION_KEY=<mínimo 32 caracteres>
+```
+
+### Retry Strategy (US-004, US-059)
+
+```
+┌─────────────┐
+│   Request   │
+└──────┬──────┘
+       │
+       ▼
+┌──────────────────┐     Sucesso     ┌─────────────┐
+│   API Request    │ ───────────────▶│   Return    │
+└────────┬─────────┘                 └─────────────┘
+         │
+         │ Erro
+         ▼
+┌──────────────────┐
+│  É Retentável?   │
+│  (5xx, 408)      │
+└────────┬─────────┘
+         │
+    ┌────┴────┐
+    │         │
+   Sim       Não
+    │         │
+    ▼         ▼
+┌────────┐  ┌──────────┐
+│ Retry  │  │  Throw   │
+│ +Backoff│  │  Error   │
+└────────┘  └──────────┘
+```
+
+**Parâmetros de Retry:**
+- Max retries: 3
+- Initial delay: 1000ms
+- Max delay: 10000ms
+- Backoff multiplier: 2x
+- Jitter: 0-30% variação
+
+**Erros não retentáveis:**
+- 401/403 (Autenticação)
+- 429 (Rate Limit - cliente decide quando retry)
+- 4xx genéricos
 
 ---
 
@@ -296,6 +446,9 @@ enum ChartType {
 
 | Data | Alteração | Autor |
 |------|-----------|-------|
+| 2026-01-18 | US-005: LangChain tool list_projects + Redis cache 5min | Claude |
+| 2026-01-18 | US-004: Integração Qase API - validação, conexão, encriptação | Claude |
+| 2026-01-18 | US-002: Banco de dados PostgreSQL + Prisma ORM configurados | Claude |
 | 2026-01-18 | US-001: Monorepo configurado com Turborepo, Next.js, Hono, Docker | Claude |
 | Jan 2026 | Documento inicial criado | Setup |
 

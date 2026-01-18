@@ -8,12 +8,6 @@
 ## 📋 BACKLOG - MVP (Fase 1)
 | ID | User Story | Prioridade | Épico |
 |----|------------|------------|-------|
-| US-002 | Configuração do Banco de Dados | Alta | Setup e Infraestrutura |
-| US-004 | Conexão com Qase API | Alta | Integração com Qase API |
-| US-005 | Listar Projetos do Qase | Alta | Integração com Qase API |
-| US-006 | Obter Casos de Teste | Alta | Integração com Qase API |
-| US-007 | Obter Execuções de Teste | Alta | Integração com Qase API |
-| US-008 | Obter Resultados Detalhados | Alta | Integração com Qase API |
 | US-011 | Configuração do LangChain Agent | Alta | Motor de IA (LangChain) |
 | US-012 | Consultas em Linguagem Natural | Alta | Motor de IA (LangChain) |
 | US-016 | Tela de Chat | Alta | Interface de Chat |
@@ -29,7 +23,6 @@
 | US-043 | Pass Rate por Projeto | Alta | Métricas e KPIs |
 | US-044 | Taxa de Automação | Alta | Métricas e KPIs |
 | US-056 | Cache de Queries Qase (básico) | Alta | Performance e Cache |
-| US-059 | Retry com Backoff | Alta | Resiliência |
 
 ---
 
@@ -48,6 +41,12 @@
 ## ✅ DONE
 | ID | User Story | Data Conclusão | Observações |
 |----|------------|----------------|-------------|
+| US-008 | Obter Resultados Detalhados | 2026-01-18 | LangChain tool get_run_results + Redis cache 5min + 203 testes |
+| US-007 | Obter Execuções de Teste | 2026-01-18 | LangChain tool get_test_runs + Redis cache 2min + 178 testes |
+| US-006 | Obter Casos de Teste | 2026-01-18 | LangChain tool get_test_cases + Redis cache 2min + 149 testes |
+| US-005 | Listar Projetos do Qase | 2026-01-18 | LangChain tool + Redis cache 5min + 121 testes |
+| US-004 | Conexão com Qase API | 2026-01-18 | Cliente HTTP + AES-256-GCM + Retry + 91 testes |
+| US-002 | Configuração do Banco de Dados | 2026-01-18 | Prisma 6.x + PostgreSQL 16 + Schema completo + Seed |
 | US-001 | Configuração do Monorepo | 2026-01-18 | Turborepo + Next.js + Hono + Docker |
 
 ---
@@ -56,12 +55,12 @@
 
 | Métrica | Valor |
 |---------|-------|
-| Total de US | 23 |
-| Concluídas | 1 |
+| Total de US | 22 |
+| Concluídas | 7 |
 | Em Progresso | 0 |
 | Em Revisão | 0 |
-| No Backlog | 22 |
-| **Progresso** | **4%** |
+| No Backlog | 15 |
+| **Progresso** | **32%** |
 
 ---
 
@@ -85,7 +84,7 @@
 
 - **Detalhes das US:** [user-stories.md](./user-stories.md)
 - **Arquitetura:** [.claude/docs/ARCHITECTURE.md](./.claude/docs/ARCHITECTURE.md)
-- **Escopo Técnico:** [qase-analytics-ai-escopo.docx](./qase-analytics-ai-escopo.docx)
+- **Escopo Técnico:** [ESCOPO.md](./ESCOPO.md)
 
 ---
 

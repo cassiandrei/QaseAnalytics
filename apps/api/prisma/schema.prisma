@@ -1,0 +1,269 @@
+// QaseAnalytics - Prisma Schema
+// Schema para persistência de usuários, widgets e dashboards
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// USER & AUTH
+// =============================================================================
+
+/// Usuário da plataforma QaseAnalytics
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String   // Hash bcrypt
+  avatarUrl String?  @map("avatar_url")
+
+  // Qase.io integration
+  qaseApiToken     String?  @map("qase_api_token") // Encrypted
+  qaseTokenValid   Boolean  @default(false) @map("qase_token_valid")
+
+  // BYOK (Bring Your Own Key) - OpenAI
+  openaiApiKey     String?  @map("openai_api_key") // Encrypted with AES-256-GCM
+
+  // Tier/Plan
+  tier             UserTier @default(FREE)
+  dailyMessagesUsed Int     @default(0) @map("daily_messages_used")
+  dailyMessagesReset DateTime? @map("daily_messages_reset")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  lastLoginAt DateTime? @map("last_login_at")
+
+  // Relations
+  widgets    Widget[]
+  dashboards Dashboard[]
+  sessions   Session[]
+  conversations Conversation[]
+
+  @@map("users")
+}
+
+/// Tier/Plano do usuário
+enum UserTier {
+  FREE       // 50 msgs/dia, 2048 tokens
+  PRO        // 500 msgs/dia, 4096 tokens
+  ENTERPRISE // 5000 msgs/dia, 8192 tokens
+  BYOK       // Unlimited (usa própria key)
+}
+
+/// Sessão de autenticação
+model Session {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  userAgent String?  @map("user_agent")
+  ipAddress String?  @map("ip_address")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+// =============================================================================
+// WIDGETS
+// =============================================================================
+
+/// Widget de visualização de dados
+model Widget {
+  id          String     @id @default(cuid())
+  name        String
+  description String?
+
+  // Query/Config
+  query       String     // Query em linguagem natural que gerou o widget
+  chartType   ChartType  @map("chart_type")
+  chartConfig Json       @map("chart_config") // Configurações específicas do gráfico
+
+  // Filters applied when widget was created
+  filters     Json?      // { projectId, dateRange, etc }
+
+  // Cached data (for performance)
+  cachedData  Json?      @map("cached_data")
+  cachedAt    DateTime?  @map("cached_at")
+
+  // Refresh settings
+  refreshInterval Int?   @map("refresh_interval") // minutes (null = manual only)
+
+  // Owner
+  userId      String     @map("user_id")
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Timestamps
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  dashboardWidgets DashboardWidget[]
+
+  @@index([userId])
+  @@map("widgets")
+}
+
+/// Tipos de gráfico suportados
+enum ChartType {
+  LINE      // Gráfico de linhas (evolução temporal)
+  BAR       // Gráfico de barras
+  PIE       // Pizza
+  DONUT     // Rosca
+  AREA      // Área
+  HEATMAP   // Mapa de calor
+  TREEMAP   // Treemap hierárquico
+  TABLE     // Tabela de dados
+  METRIC    // KPI/Número único
+}
+
+// =============================================================================
+// DASHBOARDS
+// =============================================================================
+
+/// Dashboard contendo widgets organizados
+model Dashboard {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+
+  // Layout configuration (react-grid-layout format)
+  layout      Json    @default("[]") // Array of { i, x, y, w, h }
+
+  // Global filters for all widgets
+  globalFilters Json? @map("global_filters")
+
+  // Sharing
+  isPublic    Boolean @default(false) @map("is_public")
+  shareToken  String? @unique @map("share_token")
+  shareExpiresAt DateTime? @map("share_expires_at")
+
+  // Owner
+  userId      String  @map("user_id")
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Timestamps
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  widgets     DashboardWidget[]
+
+  @@index([userId])
+  @@index([shareToken])
+  @@map("dashboards")
+}
+
+/// Relação many-to-many entre Dashboard e Widget
+model DashboardWidget {
+  id          String @id @default(cuid())
+
+  dashboardId String @map("dashboard_id")
+  widgetId    String @map("widget_id")
+
+  // Position in this specific dashboard (overrides widget default if needed)
+  position    Json?  // { x, y, w, h } - react-grid-layout format
+
+  dashboard   Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  widget      Widget    @relation(fields: [widgetId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([dashboardId, widgetId])
+  @@index([dashboardId])
+  @@index([widgetId])
+  @@map("dashboard_widgets")
+}
+
+// =============================================================================
+// CONVERSATIONS (Chat History)
+// =============================================================================
+
+/// Conversa do chat com o AI
+model Conversation {
+  id        String   @id @default(cuid())
+  title     String?  // Auto-generated from first message
+
+  // Context
+  projectCode String? @map("project_code") // Qase project code if selected
+
+  // Owner
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  messages  Message[]
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("conversations")
+}
+
+/// Mensagem individual do chat
+model Message {
+  id             String      @id @default(cuid())
+  conversationId String      @map("conversation_id")
+
+  role           MessageRole
+  content        String      // Text content
+
+  // For AI responses that include charts
+  chartData      Json?       @map("chart_data")
+  chartType      ChartType?  @map("chart_type")
+
+  // Token usage tracking
+  tokensUsed     Int?        @map("tokens_used")
+
+  // Timestamps
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([createdAt])
+  @@map("messages")
+}
+
+/// Papel na conversa
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+// =============================================================================
+// AUDIT LOG (Enterprise feature - Phase 4)
+// =============================================================================
+
+/// Log de auditoria para compliance
+model AuditLog {
+  id        String   @id @default(cuid())
+
+  userId    String?  @map("user_id")
+  action    String   // e.g., "login", "create_dashboard", "query_qase"
+  resource  String?  // e.g., "dashboard:abc123"
+  details   Json?    // Additional context
+
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

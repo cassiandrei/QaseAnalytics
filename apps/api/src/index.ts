@@ -5,6 +5,7 @@ import { logger } from "hono/logger";
 import { prettyJSON } from "hono/pretty-json";
 
 import { healthRoutes } from "./routes/health.js";
+import { qaseRoutes } from "./routes/qase.js";
 
 const app = new Hono();
 
@@ -19,8 +20,19 @@ app.use(
   })
 );
 
+// Temporary middleware to read X-User-Id header
+// TODO: Replace with proper JWT authentication (US-038/US-039)
+app.use("/api/*", async (c, next) => {
+  const userId = c.req.header("X-User-Id");
+  if (userId) {
+    c.set("userId", userId);
+  }
+  await next();
+});
+
 // Routes
 app.route("/health", healthRoutes);
+app.route("/api/qase", qaseRoutes);
 
 // Root
 app.get("/", (c) => {

@@ -25,8 +25,8 @@
 |---------|-----------|
 | `BACKLOG.md` | Kanban board - atualizar status das US aqui |
 | `user-stories.md` | Detalhes completos e critérios de aceitação |
+| `ESCOPO.md` | Escopo técnico completo do projeto (carregado pelo /dev) |
 | `.claude/docs/ARCHITECTURE.md` | Documentação técnica e decisões |
-| `qase-analytics-ai-escopo.docx` | Escopo técnico completo do projeto |
 
 ---
 
@@ -59,7 +59,12 @@ QaseAnalytics/
 │   ├── config/                # ESLint, TSConfig
 │   └── utils/                 # Funções utilitárias
 │
+├── .claude/
+│   ├── commands/              # Comandos personalizados (/dev, etc)
+│   └── docs/                  # Documentação técnica
+│
 ├── BACKLOG.md                 # Kanban board
+├── ESCOPO.md                  # Escopo técnico do projeto
 ├── CLAUDE.md                  # Este arquivo
 └── user-stories.md            # User Stories
 ```
@@ -129,11 +134,12 @@ describe('calculatePassRate', () => {
 
 ## Workflow de Desenvolvimento
 
-1. **Análise** - Ler US em `user-stories.md`
-2. **Planejamento** - Definir arquivos e testes
-3. **Implementação** - Código + testes
-4. **Documentação** - Atualizar ARCHITECTURE.md
-5. **Revisão** - Executar testes e atualizar BACKLOG.md
+1. **Escopo** - Carregar `ESCOPO.md` para contexto
+2. **Análise** - Ler US em `user-stories.md`
+3. **Planejamento** - Definir arquivos e testes
+4. **Implementação** - Código + testes
+5. **Documentação** - Atualizar ARCHITECTURE.md
+6. **Revisão** - Executar testes e atualizar BACKLOG.md
 
 ---
 

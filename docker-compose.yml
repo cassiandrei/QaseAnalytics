@@ -4,7 +4,7 @@ services:
     container_name: qase-analytics-postgres
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_USER: qase
       POSTGRES_PASSWORD: qase
@@ -22,7 +22,7 @@ services:
     container_name: qase-analytics-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes
