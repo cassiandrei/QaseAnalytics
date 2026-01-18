@@ -14,7 +14,7 @@ export interface ApiError {
 export interface SendMessageResponse {
   response: string;
   metadata?: {
-    model: string;
+    model?: string;
     tokensUsed?: number;
     toolsUsed?: string[];
   };
@@ -59,7 +59,9 @@ export async function sendMessageStream(
   userId: string,
   onChunk: (chunk: string) => void,
   onComplete: (metadata?: SendMessageResponse["metadata"]) => void,
-  onError: (error: string) => void
+  onError: (error: string) => void,
+  onToolStart?: (toolName: string) => void,
+  onToolEnd?: (toolName: string) => void
 ): Promise<void> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/chat/message`, {
@@ -69,7 +71,7 @@ export async function sendMessageStream(
         "X-User-ID": userId,
         Accept: "text/event-stream",
       },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, stream: true }),
     });
 
     if (!response.ok) {
@@ -114,6 +116,7 @@ export async function sendMessageStream(
     const decoder = new TextDecoder();
     let buffer = "";
     let metadata: SendMessageResponse["metadata"] | undefined;
+    let currentEventType = "";
 
     while (true) {
       const { done, value } = await reader.read();
@@ -124,6 +127,12 @@ export async function sendMessageStream(
       buffer = lines.pop() || "";
 
       for (const line of lines) {
+        // Hono SSE format: "event: <type>" followed by "data: <json>"
+        if (line.startsWith("event: ")) {
+          currentEventType = line.slice(7).trim();
+          continue;
+        }
+
         if (line.startsWith("data: ")) {
           const data = line.slice(6);
 
@@ -134,22 +143,43 @@ export async function sendMessageStream(
 
           try {
             const parsed = JSON.parse(data) as {
-              type: string;
+              type?: string;
               content?: string;
+              tool?: string;
+              toolsUsed?: string[];
+              durationMs?: number;
+              error?: string;
               metadata?: SendMessageResponse["metadata"];
             };
 
-            if (parsed.type === "chunk" && parsed.content) {
+            // Use event type from SSE "event:" line, fall back to type in data
+            const eventType = currentEventType || parsed.type;
+
+            if (eventType === "chunk" && parsed.content) {
               onChunk(parsed.content);
-            } else if (parsed.type === "metadata" && parsed.metadata) {
+            } else if (eventType === "tool_start" && parsed.tool) {
+              onToolStart?.(parsed.tool);
+            } else if (eventType === "tool_end" && parsed.tool) {
+              onToolEnd?.(parsed.tool);
+            } else if (eventType === "done") {
+              metadata = {
+                toolsUsed: parsed.toolsUsed,
+              };
+              onComplete(metadata);
+              return;
+            } else if (eventType === "metadata" && parsed.metadata) {
               metadata = parsed.metadata;
-            } else if (parsed.type === "error" && parsed.content) {
-              onError(parsed.content);
+            } else if (eventType === "error") {
+              onError(parsed.error || parsed.content || "Unknown error");
               return;
             }
+
+            // Reset event type after processing
+            currentEventType = "";
           } catch {
             // Not JSON, treat as raw chunk
             onChunk(data);
+            currentEventType = "";
           }
         }
       }

@@ -14,6 +14,7 @@ import { z } from "zod";
 
 import {
   sendMessage,
+  sendMessageStream,
   getChatHistory,
   clearChatHistory,
   getChatSessionStatus,
@@ -104,7 +105,7 @@ chatRoutes.post("/message", zValidator("json", sendMessageSchema), async (c) => 
     });
   }
 
-  // Streaming via SSE
+  // Streaming via SSE com tokens reais do LLM
   return streamSSE(c, async (stream) => {
     try {
       // Envia evento de início
@@ -113,47 +114,59 @@ chatRoutes.post("/message", zValidator("json", sendMessageSchema), async (c) => 
         data: JSON.stringify({ timestamp: new Date().toISOString() }),
       });
 
-      // Processa a mensagem
-      const result = await sendMessage({
-        userId,
-        message,
-        projectCode,
-      });
+      // Acumula o conteúdo completo para a mensagem final
+      let fullContent = "";
 
-      if (!result.success) {
-        await stream.writeSSE({
-          event: "error",
-          data: JSON.stringify({ error: result.error }),
-        });
-        return;
-      }
+      // Processa a mensagem com streaming real
+      await sendMessageStream(
+        { userId, message, projectCode },
+        {
+          // Emite cada token conforme gerado pelo LLM
+          onToken: async (token: string) => {
+            fullContent += token;
+            await stream.writeSSE({
+              event: "chunk",
+              data: JSON.stringify({ content: token }),
+            });
+          },
 
-      // Simula streaming da resposta (chunks de texto)
-      // Em produção, isso seria feito com OpenAI streaming
-      const content = result.message?.content ?? "";
-      const chunkSize = 50;
-      let position = 0;
+          // Notifica quando uma tool começa a ser executada
+          onToolStart: async (toolName: string) => {
+            await stream.writeSSE({
+              event: "tool_start",
+              data: JSON.stringify({ tool: toolName }),
+            });
+          },
 
-      while (position < content.length) {
-        const chunk = content.slice(position, position + chunkSize);
-        await stream.writeSSE({
-          event: "chunk",
-          data: JSON.stringify({ content: chunk }),
-        });
-        position += chunkSize;
-        // Pequeno delay para simular streaming
-        await new Promise((resolve) => setTimeout(resolve, 10));
-      }
+          // Notifica quando uma tool termina
+          onToolEnd: async (toolName: string) => {
+            await stream.writeSSE({
+              event: "tool_end",
+              data: JSON.stringify({ tool: toolName }),
+            });
+          },
 
-      // Envia evento de conclusão
-      await stream.writeSSE({
-        event: "done",
-        data: JSON.stringify({
-          message: result.message,
-          toolsUsed: result.toolsUsed,
-          durationMs: result.durationMs,
-        }),
-      });
+          // Emite erro se ocorrer
+          onError: async (error: string) => {
+            await stream.writeSSE({
+              event: "error",
+              data: JSON.stringify({ error }),
+            });
+          },
+
+          // Emite evento de conclusão
+          onDone: async (result) => {
+            await stream.writeSSE({
+              event: "done",
+              data: JSON.stringify({
+                content: fullContent,
+                toolsUsed: result.toolsUsed,
+                durationMs: result.durationMs,
+              }),
+            });
+          },
+        }
+      );
     } catch (error) {
       console.error("SSE streaming error:", error);
       await stream.writeSSE({

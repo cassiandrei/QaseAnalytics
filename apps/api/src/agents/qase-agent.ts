@@ -97,13 +97,14 @@ export class QaseAgent {
       ...config,
     };
 
-    // Inicializa o LLM (ChatGPT)
+    // Inicializa o LLM (ChatGPT) com streaming habilitado
     this.llm = new ChatOpenAI({
       modelName: this.config.model,
       temperature: this.config.temperature,
       maxTokens: this.config.maxTokens,
       openAIApiKey: this.config.openAIApiKey,
       timeout: this.config.timeout,
+      streaming: true, // Habilita streaming real do LLM
     });
 
     // Cria as tools com contexto do usuário
@@ -214,6 +215,105 @@ export class QaseAgent {
         output: errorMessage,
         chatHistory: await this.memory.getMessages(),
         toolsUsed: [],
+        durationMs: Date.now() - startTime,
+      };
+    }
+  }
+
+  /**
+   * Processa uma mensagem com streaming real do LLM.
+   *
+   * @param input - Mensagem do usuário
+   * @param onToken - Callback para cada token gerado
+   * @param onToolStart - Callback quando uma tool começa a executar
+   * @param onToolEnd - Callback quando uma tool termina
+   * @returns Resposta final do agente
+   */
+  async chatStream(
+    input: string,
+    onToken: (token: string) => void,
+    onToolStart?: (toolName: string) => void,
+    onToolEnd?: (toolName: string) => void
+  ): Promise<AgentResponse> {
+    const startTime = Date.now();
+    const toolsUsed: string[] = [];
+
+    try {
+      const executor = await this.getExecutor();
+
+      // Contexto para o prompt
+      const context: AgentContext = {
+        userId: this.config.userId,
+        projectCode: this.config.projectCode ?? "all",
+      };
+
+      // Obtém histórico de chat para passar ao prompt
+      const chatHistory = await this.memory.getMessages();
+
+      let finalOutput = "";
+
+      // Usa streamEvents para streaming real, incluindo chat_history
+      const eventStream = executor.streamEvents(
+        { input, chat_history: chatHistory, ...context },
+        { version: "v2" }
+      );
+
+      for await (const event of eventStream) {
+        // Tokens do LLM
+        if (event.event === "on_chat_model_stream") {
+          const chunk = event.data?.chunk;
+          if (chunk?.content) {
+            const token = typeof chunk.content === "string"
+              ? chunk.content
+              : chunk.content[0]?.text || "";
+            if (token) {
+              onToken(token);
+              finalOutput += token;
+            }
+          }
+        }
+
+        // Tool começou a executar
+        if (event.event === "on_tool_start") {
+          const toolName = event.name;
+          if (toolName && !toolsUsed.includes(toolName)) {
+            toolsUsed.push(toolName);
+            onToolStart?.(toolName);
+          }
+        }
+
+        // Tool terminou
+        if (event.event === "on_tool_end") {
+          onToolEnd?.(event.name);
+        }
+
+        // Resposta final do agente
+        if (event.event === "on_chain_end" && event.name === "AgentExecutor") {
+          if (event.data?.output?.output) {
+            finalOutput = event.data.output.output;
+          }
+        }
+      }
+
+      // Atualiza a memória com a interação (input + output)
+      await this.memory.addUserMessage(input);
+      await this.memory.addAIMessage(finalOutput);
+
+      const updatedHistory = await this.memory.getMessages();
+
+      return {
+        output: finalOutput,
+        chatHistory: updatedHistory,
+        toolsUsed,
+        durationMs: Date.now() - startTime,
+      };
+    } catch (error) {
+      const errorMessage = this.handleError(error);
+
+      return {
+        output: errorMessage,
+        chatHistory: await this.memory.getMessages(),
+        toolsUsed,
         durationMs: Date.now() - startTime,
       };
     }

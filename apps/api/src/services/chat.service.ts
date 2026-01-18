@@ -360,3 +360,135 @@ export async function setProjectForChat(
 function generateMessageId(): string {
   return `msg-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 }
+
+/** Callbacks para streaming */
+export interface StreamCallbacks {
+  onToken: (token: string) => void | Promise<void>;
+  onToolStart?: (toolName: string) => void | Promise<void>;
+  onToolEnd?: (toolName: string) => void | Promise<void>;
+  onError?: (error: string) => void | Promise<void>;
+  onDone?: (result: { toolsUsed: string[]; durationMs: number }) => void | Promise<void>;
+}
+
+/** Resultado da validação de input */
+interface ValidationResult {
+  valid: boolean;
+  error?: string;
+  qaseToken?: string;
+}
+
+/**
+ * Valida o input de uma mensagem de chat.
+ */
+async function validateMessageInput(input: SendMessageInput): Promise<ValidationResult> {
+  const { userId, message } = input;
+
+  if (!message || message.trim().length === 0) {
+    return { valid: false, error: "Message is required" };
+  }
+
+  if (message.length > 2000) {
+    return { valid: false, error: "Message is too long (max 2000 characters)" };
+  }
+
+  const qaseToken = await getQaseTokenForUser(userId);
+  if (!qaseToken) {
+    return { valid: false, error: "Please connect your Qase account first" };
+  }
+
+  if (!env.OPENAI_API_KEY) {
+    return { valid: false, error: "OpenAI API key is not configured" };
+  }
+
+  return { valid: true, qaseToken };
+}
+
+/**
+ * Envia uma mensagem com streaming real do LLM.
+ * Usa callbacks para emitir tokens conforme são gerados.
+ *
+ * @param input - Dados da mensagem
+ * @param callbacks - Callbacks para eventos de streaming
+ *
+ * @example
+ * ```typescript
+ * await sendMessageStream(
+ *   { userId: "user-123", message: "Qual a taxa de falha?" },
+ *   {
+ *     onToken: (token) => process.stdout.write(token),
+ *     onToolStart: (name) => console.log(`Using tool: ${name}`),
+ *     onDone: (result) => console.log(`Done in ${result.durationMs}ms`),
+ *   }
+ * );
+ * ```
+ */
+export async function sendMessageStream(
+  input: SendMessageInput,
+  callbacks: StreamCallbacks
+): Promise<void> {
+  const { userId, message, projectCode } = input;
+  const startTime = Date.now();
+
+  // Valida entrada
+  const validation = await validateMessageInput(input);
+  if (!validation.valid) {
+    await callbacks.onError?.(validation.error!);
+    return;
+  }
+
+  try {
+    // Obtém ou cria o agente para este usuário/projeto
+    const config: QaseAgentConfig = {
+      openAIApiKey: env.OPENAI_API_KEY!,
+      qaseToken: validation.qaseToken!,
+      userId,
+      projectCode,
+    };
+
+    const agent = getOrCreateAgent(config);
+
+    // Processa a mensagem com streaming real
+    const response = await agent.chatStream(
+      message,
+      // onToken - emite cada token conforme gerado pelo LLM
+      (token: string) => {
+        callbacks.onToken(token);
+      },
+      // onToolStart
+      (toolName: string) => {
+        callbacks.onToolStart?.(toolName);
+      },
+      // onToolEnd
+      (toolName: string) => {
+        callbacks.onToolEnd?.(toolName);
+      }
+    );
+
+    // Verifica timeout (10 segundos - critério de aceitação)
+    const totalDuration = Date.now() - startTime;
+    if (totalDuration > 10000) {
+      console.warn(`Chat streaming response took ${totalDuration}ms (> 10s threshold)`);
+    }
+
+    await callbacks.onDone?.({
+      toolsUsed: response.toolsUsed,
+      durationMs: response.durationMs,
+    });
+  } catch (error) {
+    console.error("Error in streaming chat message:", error);
+
+    let errorMessage = "I encountered an error processing your request. Please try again.";
+
+    if (error instanceof Error) {
+      if (error.message.includes("429") || error.message.includes("rate_limit")) {
+        errorMessage = "Rate limit exceeded. Please wait a moment and try again.";
+      } else if (error.message.includes("timeout") || error.message.includes("ETIMEDOUT")) {
+        errorMessage = "Request timed out. Please try a simpler question.";
+      } else if (error.message.includes("401") || error.message.includes("invalid_api_key")) {
+        errorMessage = "OpenAI API key is invalid. Please contact support.";
+      }
+    }
+
+    await callbacks.onError?.(errorMessage);
+  }
+}
