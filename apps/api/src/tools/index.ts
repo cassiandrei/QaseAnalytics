@@ -38,3 +38,12 @@ export {
   type TestResultItem,
   type ResultsByStatus,
 } from "./get-run-results.tool.js";
+
+export {
+  createGenerateChartTool,
+  generateChart,
+  type GenerateChartInput,
+  type GenerateChartResult,
+  type ChartConfig,
+  type ChartType,
+} from "./generate-chart.tool.js";

@@ -28,21 +28,21 @@ export const GetRunResultsInputSchema = z.object({
     .describe("The test run ID to get results for"),
   status: z
     .enum(["passed", "failed", "blocked", "skipped", "invalid", "in_progress"])
-    .optional()
+    .nullish()
     .describe("Filter results by status"),
   limit: z
     .number()
     .int()
     .min(1)
     .max(100)
-    .optional()
+    .nullish()
     .default(100)
     .describe("Maximum number of results to return (1-100)"),
   offset: z
     .number()
     .int()
     .min(0)
-    .optional()
+    .nullish()
     .default(0)
     .describe("Number of results to skip for pagination"),
 });

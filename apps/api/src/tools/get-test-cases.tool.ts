@@ -61,41 +61,41 @@ const GetTestCasesInputSchema = z.object({
     .describe("The project code (2-10 alphanumeric characters)"),
   search: z
     .string()
-    .optional()
+    .nullish()
     .describe("Search term to filter test cases by name"),
   suiteId: z
     .number()
     .int()
     .positive()
-    .optional()
+    .nullish()
     .describe("Filter by test suite ID"),
   severity: z
-    .enum(["undefined", "blocker", "critical", "major", "normal", "minor", "trivial"])
-    .optional()
+    .enum(["blocker", "critical", "major", "normal", "minor", "trivial"])
+    .nullish()
     .describe("Filter by severity level"),
   priority: z
-    .enum(["undefined", "high", "medium", "low"])
-    .optional()
+    .enum(["high", "medium", "low"])
+    .nullish()
     .describe("Filter by priority level"),
   automation: z
     .enum(["is-not-automated", "automated", "to-be-automated"])
-    .optional()
+    .nullish()
     .describe("Filter by automation status"),
   status: z
     .enum(["actual", "draft", "deprecated"])
-    .optional()
+    .nullish()
     .describe("Filter by test case status"),
   limit: z
     .number()
     .min(1)
     .max(100)
-    .optional()
+    .nullish()
     .default(100)
     .describe("Maximum number of test cases to return (1-100, default: 100)"),
   offset: z
     .number()
     .min(0)
-    .optional()
+    .nullish()
     .default(0)
     .describe("Number of test cases to skip for pagination (default: 0)"),
 });
@@ -103,14 +103,14 @@ const GetTestCasesInputSchema = z.object({
 /** Tipo de entrada para a função getTestCasesWithCache (limit e offset são opcionais) */
 export type GetTestCasesInput = {
   projectCode: string;
-  search?: string;
-  suiteId?: number;
-  severity?: "undefined" | "blocker" | "critical" | "major" | "normal" | "minor" | "trivial";
-  priority?: "undefined" | "high" | "medium" | "low";
-  automation?: "is-not-automated" | "automated" | "to-be-automated";
-  status?: "actual" | "draft" | "deprecated";
-  limit?: number;
-  offset?: number;
+  search?: string | null;
+  suiteId?: number | null;
+  severity?: "blocker" | "critical" | "major" | "normal" | "minor" | "trivial" | null;
+  priority?: "high" | "medium" | "low" | null;
+  automation?: "is-not-automated" | "automated" | "to-be-automated" | null;
+  status?: "actual" | "draft" | "deprecated" | null;
+  limit?: number | null;
+  offset?: number | null;
 };
 
 /** Resultado formatado para o agent */

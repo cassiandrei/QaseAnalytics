@@ -20,6 +20,7 @@ import {
   createGetTestCasesToolWithContext,
   createGetTestRunsToolWithContext,
   createGetRunResultsToolWithContext,
+  createGenerateChartTool,
 } from "../tools/index.js";
 
 /** Configuração do agente */
@@ -125,6 +126,7 @@ export class QaseAgent {
       createGetTestCasesToolWithContext(qaseToken, userId),
       createGetTestRunsToolWithContext(qaseToken, userId),
       createGetRunResultsToolWithContext(qaseToken, userId),
+      createGenerateChartTool(),
     ];
   }
 
@@ -296,7 +298,7 @@ export class QaseAgent {
       }
 
       // Atualiza a memória com a interação (input + output)
-      await this.memory.addUserMessage(input);
+      await this.memory.addHumanMessage(input);
       await this.memory.addAIMessage(finalOutput);
 
       const updatedHistory = await this.memory.getMessages();

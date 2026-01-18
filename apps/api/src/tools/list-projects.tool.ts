@@ -18,13 +18,13 @@ const ListProjectsInputSchema = z.object({
     .number()
     .min(1)
     .max(100)
-    .optional()
+    .nullish()
     .default(100)
     .describe("Maximum number of projects to return (1-100, default: 100)"),
   offset: z
     .number()
     .min(0)
-    .optional()
+    .nullish()
     .default(0)
     .describe("Number of projects to skip for pagination (default: 0)"),
 });

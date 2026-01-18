@@ -23,39 +23,41 @@ export const GetTestRunsInputSchema = z.object({
   projectCode: z.string().describe("The project code in Qase (e.g., 'GV', 'DEMO')"),
   status: z
     .enum(["active", "complete", "abort"])
-    .optional()
+    .nullish()
     .describe("Filter by run status"),
   fromStartTime: z
     .string()
-    .optional()
+    .nullish()
     .describe("Filter runs started after this date (ISO 8601 format, e.g., '2024-01-01')"),
   toStartTime: z
     .string()
-    .optional()
+    .nullish()
     .describe("Filter runs started before this date (ISO 8601 format, e.g., '2024-12-31')"),
   environment: z
     .number()
     .int()
     .positive()
-    .optional()
+    .nullish()
     .describe("Filter by environment ID"),
   milestone: z
     .number()
     .int()
     .positive()
-    .optional()
+    .nullish()
     .describe("Filter by milestone ID"),
   limit: z
     .number()
     .int()
     .min(1)
     .max(100)
+    .nullish()
     .default(100)
     .describe("Maximum number of runs to return (1-100)"),
   offset: z
     .number()
     .int()
     .min(0)
+    .nullish()
     .default(0)
     .describe("Number of runs to skip for pagination"),
 });

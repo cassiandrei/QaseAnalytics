@@ -8,7 +8,6 @@
 ## 📋 BACKLOG - MVP (Fase 1)
 | ID | User Story | Prioridade | Épico |
 |----|------------|------------|-------|
-| US-017 | Preview de Gráficos no Chat | Alta | Interface de Chat |
 | US-018 | Seleção de Projeto | Alta | Interface de Chat |
 | US-020 | Gráfico de Linhas | Alta | Visualização de Dados |
 | US-021 | Gráfico de Barras | Alta | Visualização de Dados |
@@ -38,6 +37,7 @@
 ## ✅ DONE
 | ID | User Story | Data Conclusão | Observações |
 |----|------------|----------------|-------------|
+| US-017 | Preview de Gráficos no Chat | 2026-01-18 | Recharts + generate_chart tool + ChartPreview + ChartModal + 25 testes |
 | US-016 | Tela de Chat | 2026-01-18 | ChatContainer + Zustand + Markdown + SSE + E2E tests |
 | US-012 | Consultas em Linguagem Natural | 2026-01-18 | ChatService + 5 endpoints + SSE streaming + 302 testes |
 | US-011 | Configuração do LangChain Agent | 2026-01-18 | QaseAgent + GPT-4o + Memory buffer + 4 tools + 256 testes |
@@ -56,11 +56,11 @@
 | Métrica | Valor |
 |---------|-------|
 | Total de US | 22 |
-| Concluídas | 10 |
+| Concluídas | 11 |
 | Em Progresso | 0 |
 | Em Revisão | 0 |
-| No Backlog | 12 |
-| **Progresso** | **45%** |
+| No Backlog | 11 |
+| **Progresso** | **50%** |
 
 ---
 

@@ -54,12 +54,19 @@ const mockGetRunResultsTool = {
   invoke: vi.fn(),
   schema: {},
 };
+const mockGenerateChartTool = {
+  name: "generate_chart",
+  description: "Generate chart",
+  invoke: vi.fn(),
+  schema: {},
+};
 
 vi.mock("../../../tools/index.js", () => ({
   createListProjectsToolWithContext: vi.fn(() => mockListProjectsTool),
   createGetTestCasesToolWithContext: vi.fn(() => mockGetTestCasesTool),
   createGetTestRunsToolWithContext: vi.fn(() => mockGetTestRunsTool),
   createGetRunResultsToolWithContext: vi.fn(() => mockGetRunResultsTool),
+  createGenerateChartTool: vi.fn(() => mockGenerateChartTool),
 }));
 
 // Mock da memória
@@ -153,11 +160,12 @@ describe("QaseAgent", () => {
       expect(info.model).toBe("gpt-4o");
       expect(info.userId).toBe("user-123");
       expect(info.projectCode).toBe("DEMO");
-      expect(info.toolsCount).toBe(4);
+      expect(info.toolsCount).toBe(5);
       expect(info.toolNames).toContain("list_projects");
       expect(info.toolNames).toContain("get_test_cases");
       expect(info.toolNames).toContain("get_test_runs");
       expect(info.toolNames).toContain("get_run_results");
+      expect(info.toolNames).toContain("generate_chart");
     });
 
     it("should return 'all' as projectCode when not specified", () => {

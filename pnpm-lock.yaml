@@ -121,7 +121,7 @@ importers:
         specifier: ^10.1.0
         version: 10.1.0(@types/react@19.2.8)(react@19.2.3)
       recharts:
-        specifier: ^2.15.0
+        specifier: ^2.15.4
         version: 2.15.4(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       remark-gfm:
         specifier: ^4.0.1
