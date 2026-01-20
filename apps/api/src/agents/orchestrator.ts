@@ -13,7 +13,8 @@ import { BaseMessage, HumanMessage, AIMessage } from "@langchain/core/messages";
 import { z } from "zod";
 
 import { listProjectsWithCache } from "../tools/index.js";
-import { QaseAgent, type QaseAgentConfig } from "./qase-agent.js";
+import { getOrCreateAgent, type QaseAgentConfig } from "./qase-agent.js";
+import { globalMemoryStore } from "./memory.js";
 
 /** Projeto simplificado */
 export interface Project {
@@ -308,7 +309,7 @@ async function executeAgentNode(
       projectCode: state.projectCode ?? undefined,
     };
 
-    const agent = new QaseAgent(config);
+    const agent = getOrCreateAgent(config);
     const result = await agent.chat(state.input);
 
     return {
@@ -405,11 +406,22 @@ async function selectProjectNode(
 
 /**
  * Node: Resposta genérica.
+ * Inclui histórico de conversação para manter contexto.
  */
 async function generalResponseNode(
   state: OrchestratorStateType
 ): Promise<Partial<OrchestratorStateType>> {
   const llm = createClassifierLLM(state.openAIApiKey);
+
+  // Obtém histórico de conversação da memória global
+  const memory = globalMemoryStore.getSession(state.userId);
+  const chatHistory = await memory.getMessages();
+
+  // Converte histórico para formato de mensagens do LLM
+  const historyMessages = chatHistory.map((msg) => ({
+    role: msg._getType() === "human" ? "user" as const : "assistant" as const,
+    content: typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content),
+  }));
 
   const response = await llm.invoke([
     {
@@ -423,13 +435,19 @@ If the user seems confused, explain what you can help with:
 - Calculate metrics like pass rate
 - Generate charts and visualizations
 
-Keep responses concise and helpful.`,
+Keep responses concise and helpful.
+IMPORTANT: Use the conversation history to understand context. If the user refers to something mentioned before, use that context.`,
     },
+    ...historyMessages,
     {
       role: "user",
       content: state.input,
     },
   ]);
+
+  // Salva a interação na memória
+  await memory.addHumanMessage(state.input);
+  await memory.addAIMessage(response.content as string);
 
   return {
     response: response.content as string,
