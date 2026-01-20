@@ -708,6 +708,8 @@ export async function runOrchestratorStream(
 
     // Track which node is currently executing
     let currentNode = "";
+    // Track if we already streamed content (to avoid duplicating)
+    let hasStreamedContent = false;
 
     for await (const event of eventStream) {
       // Track node transitions
@@ -730,6 +732,7 @@ export async function runOrchestratorStream(
               : chunk.content[0]?.text || "";
             if (token) {
               await callbacks.onToken(token);
+              hasStreamedContent = true;
             }
           }
         }
@@ -768,7 +771,8 @@ export async function runOrchestratorStream(
     }
 
     // Se a resposta não foi streamada (como em askProjectSelection), envia toda
-    if (finalResult.response && !finalResult.response.includes("[streamed]")) {
+    // Só envia se não houve streaming de conteúdo durante a execução
+    if (finalResult.response && !hasStreamedContent) {
       // Para respostas que não vieram de streaming, emite token por token
       for (const char of finalResult.response) {
         await callbacks.onToken(char);
