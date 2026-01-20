@@ -150,64 +150,62 @@ export function WidgetCard({
 
   return (
     <div
-      className="relative bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+      className="relative bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-lg hover:border-primary-200 transition-all duration-200 overflow-hidden group"
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
     >
       {/* Header */}
-      <div className="p-3 border-b border-gray-100">
+      <div className="p-4 border-b border-gray-100">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <h3 className="font-medium text-gray-900 text-sm truncate">
+            <h3 className="font-semibold text-gray-900 text-sm truncate group-hover:text-primary-700 transition-colors">
               {widget.name}
             </h3>
             {widget.description && (
-              <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">
+              <p className="text-xs text-gray-500 mt-1 line-clamp-1">
                 {widget.description}
               </p>
             )}
           </div>
 
           {/* Chart type badge */}
-          <span className="flex-shrink-0 px-2 py-0.5 text-xs font-medium rounded-full bg-primary-100 text-primary-700">
+          <span className="flex-shrink-0 px-2.5 py-1 text-xs font-medium rounded-full bg-primary-100 text-primary-700 border border-primary-200 capitalize">
             {widget.chartType.toLowerCase()}
           </span>
         </div>
       </div>
 
       {/* Chart Preview */}
-      <div
-        className="p-2 bg-gray-50 cursor-pointer"
+      <button
+        className="w-full p-3 bg-gradient-to-br from-gray-50 to-gray-100/80 cursor-pointer hover:from-primary-50/50 hover:to-primary-100/30 transition-all duration-200"
         onClick={handleView}
-        role="button"
-        tabIndex={0}
         onKeyDown={(e) => e.key === "Enter" && handleView()}
         aria-label={`Ver widget ${widget.name}`}
       >
-        <div className="h-[120px] pointer-events-none">
+        <div className="h-[130px] pointer-events-none rounded-lg overflow-hidden bg-white/50 border border-gray-100">
           <MiniChartRenderer config={chartConfig} />
         </div>
-      </div>
+      </button>
 
       {/* Footer */}
-      <div className="px-3 py-2 bg-white border-t border-gray-100">
+      <div className="px-4 py-3 bg-white border-t border-gray-100">
         <div className="flex items-center justify-between text-xs text-gray-500">
-          <div className="flex items-center gap-3">
-            <span title={`Criado em ${formatDate(widget.createdAt)}`}>
-              <CalendarIcon className="w-3 h-3 inline mr-1" />
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-1.5" title={`Criado em ${formatDate(widget.createdAt)}`}>
+              <CalendarIcon className="w-3.5 h-3.5 text-gray-400" />
               {formatDate(widget.createdAt)}
             </span>
             {widget.cachedAt && (
-              <span title={`Última atualização: ${new Date(widget.cachedAt).toLocaleString("pt-BR")}`}>
-                <RefreshIcon className="w-3 h-3 inline mr-1" />
+              <span className="flex items-center gap-1.5" title={`Última atualização: ${new Date(widget.cachedAt).toLocaleString("pt-BR")}`}>
+                <RefreshIcon className="w-3.5 h-3.5 text-gray-400" />
                 {formatRelativeTime(widget.cachedAt)}
               </span>
             )}
           </div>
 
           {refreshLabel && (
-            <span className="flex items-center gap-1 text-primary-600" title="Atualização automática">
-              <ClockIcon className="w-3 h-3" />
+            <span className="flex items-center gap-1.5 px-2 py-1 bg-primary-50 text-primary-700 rounded-md font-medium" title="Atualização automática">
+              <ClockIcon className="w-3.5 h-3.5" />
               {refreshLabel}
             </span>
           )}

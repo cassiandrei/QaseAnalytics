@@ -86,7 +86,7 @@ export function DashboardCard({
 
   return (
     <div
-      className="relative bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+      className="relative bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-lg hover:border-primary-200 transition-all duration-200 overflow-hidden group"
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
     >
@@ -94,7 +94,7 @@ export function DashboardCard({
       <div className="p-4 border-b border-gray-100">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <h3 className="font-medium text-gray-900 text-base truncate">
+            <h3 className="font-semibold text-gray-900 text-base truncate group-hover:text-primary-700 transition-colors">
               {dashboard.name}
             </h3>
             {dashboard.description && (
@@ -107,7 +107,7 @@ export function DashboardCard({
           {/* Status badges */}
           <div className="flex-shrink-0 flex gap-1">
             {dashboard.isPublic && (
-              <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">
+              <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700 border border-green-200">
                 Público
               </span>
             )}
@@ -116,45 +116,45 @@ export function DashboardCard({
       </div>
 
       {/* Preview Area */}
-      <div
-        className="p-4 bg-gray-50 cursor-pointer min-h-[100px]"
+      <button
+        className="w-full p-6 bg-gradient-to-br from-gray-50 to-gray-100 cursor-pointer min-h-[120px] hover:from-primary-50 hover:to-primary-100/50 transition-all duration-200"
         onClick={handleView}
-        role="button"
-        tabIndex={0}
         onKeyDown={(e) => e.key === "Enter" && handleView()}
         aria-label={`Abrir dashboard ${dashboard.name}`}
       >
         <div className="flex items-center justify-center h-full">
           {dashboard.widgetCount > 0 ? (
             <div className="text-center">
-              <div className="flex items-center justify-center gap-2 text-gray-600">
-                <GridIcon className="w-5 h-5" />
-                <span className="text-lg font-medium">{dashboard.widgetCount}</span>
+              <div className="w-14 h-14 rounded-xl bg-primary-100 flex items-center justify-center mx-auto mb-3 group-hover:bg-primary-200 transition-colors">
+                <GridIcon className="w-7 h-7 text-primary-600" />
               </div>
-              <p className="text-xs text-gray-500 mt-1">
+              <span className="text-2xl font-bold text-gray-900">{dashboard.widgetCount}</span>
+              <p className="text-sm text-gray-500 mt-0.5">
                 widget{dashboard.widgetCount !== 1 ? "s" : ""}
               </p>
             </div>
           ) : (
-            <div className="text-center text-gray-400">
-              <EmptyDashboardIcon className="w-8 h-8 mx-auto mb-2" />
-              <p className="text-xs">Dashboard vazio</p>
-              <p className="text-xs">Clique para adicionar widgets</p>
+            <div className="text-center">
+              <div className="w-14 h-14 rounded-xl bg-gray-200/70 flex items-center justify-center mx-auto mb-3 group-hover:bg-primary-100 transition-colors">
+                <EmptyDashboardIcon className="w-7 h-7 text-gray-400 group-hover:text-primary-500 transition-colors" />
+              </div>
+              <p className="text-sm font-medium text-gray-500">Dashboard vazio</p>
+              <p className="text-xs text-gray-400 mt-1">Clique para adicionar widgets</p>
             </div>
           )}
         </div>
-      </div>
+      </button>
 
       {/* Footer */}
       <div className="px-4 py-3 bg-white border-t border-gray-100">
         <div className="flex items-center justify-between text-xs text-gray-500">
-          <div className="flex items-center gap-3">
-            <span title={`Criado em ${formatDate(dashboard.createdAt)}`}>
-              <CalendarIcon className="w-3 h-3 inline mr-1" />
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-1.5" title={`Criado em ${formatDate(dashboard.createdAt)}`}>
+              <CalendarIcon className="w-3.5 h-3.5 text-gray-400" />
               {formatDate(dashboard.createdAt)}
             </span>
-            <span title={`Última atualização: ${new Date(dashboard.updatedAt).toLocaleString("pt-BR")}`}>
-              <RefreshIcon className="w-3 h-3 inline mr-1" />
+            <span className="flex items-center gap-1.5" title={`Última atualização: ${new Date(dashboard.updatedAt).toLocaleString("pt-BR")}`}>
+              <RefreshIcon className="w-3.5 h-3.5 text-gray-400" />
               {formatRelativeTime(dashboard.updatedAt)}
             </span>
           </div>

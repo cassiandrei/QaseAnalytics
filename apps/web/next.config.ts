@@ -5,6 +5,15 @@ const nextConfig: NextConfig = {
   experimental: {
     typedRoutes: true,
   },
+  async redirects() {
+    return [
+      {
+        source: "/chat",
+        destination: "/",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

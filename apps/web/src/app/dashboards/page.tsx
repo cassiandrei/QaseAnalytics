@@ -107,29 +107,37 @@ export default function DashboardsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between h-14 sm:h-16">
             {/* Logo/Brand */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0">
               <Link
                 href="/"
-                className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
+                className="flex-shrink-0 flex items-center gap-2 text-gray-600 hover:text-gray-900 p-1 -ml-1"
               >
                 <HomeIcon className="w-5 h-5" />
                 <span className="sr-only">Voltar ao Chat</span>
               </Link>
-              <div className="h-6 w-px bg-gray-300" />
-              <h1 className="text-xl font-semibold text-gray-900">
-                Meus Dashboards
-              </h1>
+              <div className="h-5 sm:h-6 w-px bg-gray-300 flex-shrink-0" />
+              <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3 min-w-0">
+                <h1 className="text-base sm:text-xl font-semibold text-gray-900 truncate">
+                  Meus Dashboards
+                </h1>
+                {/* Limit info - mobile inline */}
+                {limitInfo && (
+                  <span className="text-xs sm:text-sm text-gray-500 sm:hidden">
+                    {limitInfo.current}/{limitInfo.limit}
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-3">
-              {/* Limit info badge */}
+            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+              {/* Limit info badge - desktop */}
               {limitInfo && (
-                <span className="text-sm text-gray-500">
+                <span className="hidden sm:inline-block text-sm text-gray-500 whitespace-nowrap">
                   {limitInfo.current}/{limitInfo.limit} dashboards
                 </span>
               )}
@@ -137,11 +145,12 @@ export default function DashboardsPage() {
               <button
                 onClick={openCreateModal}
                 disabled={limitInfo?.remaining === 0}
-                className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 sm:px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <span className="flex items-center gap-2">
+                <span className="flex items-center gap-1.5 sm:gap-2">
                   <PlusIcon className="w-4 h-4" />
-                  Novo Dashboard
+                  <span className="hidden xs:inline">Novo</span>
+                  <span className="hidden sm:inline">Dashboard</span>
                 </span>
               </button>
             </div>
