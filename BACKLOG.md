@@ -8,9 +8,6 @@
 ## 📋 BACKLOG - MVP (Fase 1)
 | ID | User Story | Prioridade | Épico |
 |----|------------|------------|-------|
-| US-026 | Salvar Gráfico como Widget | Alta | Sistema de Widgets |
-| US-027 | Listar Meus Widgets | Alta | Sistema de Widgets |
-| US-030 | Criar Dashboard (básico) | Alta | Dashboards |
 | US-031 | Adicionar Widgets ao Dashboard | Alta | Dashboards |
 | US-043 | Pass Rate por Projeto | Alta | Métricas e KPIs |
 | US-044 | Taxa de Automação | Alta | Métricas e KPIs |
@@ -33,6 +30,9 @@
 ## ✅ DONE
 | ID | User Story | Data Conclusão | Observações |
 |----|------------|----------------|-------------|
+| US-030 | Criar Dashboard (básico) | 2026-01-20 | DashboardCard + DashboardList + CreateDashboardModal + useDashboards + limite por tier + 65 testes |
+| US-027 | Listar Meus Widgets | 2026-01-20 | WidgetCard + WidgetList + WidgetViewModal + busca/filtro/sort + 56 testes |
+| US-026 | Salvar Gráfico como Widget | 2026-01-20 | CRUD + Auto Refresh Job + SaveWidgetModal + useWidgets + 26 testes |
 | US-022 | Gráfico de Pizza/Donut | 2026-01-18 | Hover effect + center value + centerLabel + 30 testes |
 | US-021 | Gráfico de Barras | 2026-01-18 | Horizontal layout + stacked/percent modes + value labels + 30 testes |
 | US-020 | Gráfico de Linhas | 2026-01-18 | Brush zoom/pan + ReferenceArea + auto threshold + 30 testes |
@@ -55,11 +55,11 @@
 | Métrica | Valor |
 |---------|-------|
 | Total de US | 21 |
-| Concluídas | 14 |
+| Concluídas | 17 |
 | Em Progresso | 0 |
 | Em Revisão | 0 |
-| No Backlog | 7 |
-| **Progresso** | **67%** |
+| No Backlog | 4 |
+| **Progresso** | **81%** |
 
 ---
 

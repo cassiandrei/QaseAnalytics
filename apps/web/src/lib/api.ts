@@ -291,3 +291,471 @@ export async function setProjectForChat(
     throw new Error(errorData.error || "Failed to set project");
   }
 }
+
+// =============================================================================
+// WIDGET API
+// =============================================================================
+
+export interface Widget {
+  id: string;
+  name: string;
+  description: string | null;
+  query: string;
+  chartType: string;
+  chartConfig: {
+    title: string;
+    xAxis?: string;
+    yAxis?: string;
+    colors?: string[];
+    legend?: boolean;
+    data?: unknown[];
+  };
+  filters: Record<string, unknown> | null;
+  cachedData: unknown;
+  cachedAt: string | null;
+  refreshInterval: number | null;
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateWidgetRequest {
+  name: string;
+  description?: string;
+  query: string;
+  chartType: string;
+  chartConfig: {
+    title: string;
+    xAxis?: string;
+    yAxis?: string;
+    colors?: string[];
+    legend?: boolean;
+    data?: unknown[];
+  };
+  filters?: Record<string, unknown>;
+  refreshInterval?: number;
+  cachedData?: unknown;
+}
+
+export interface WidgetListResponse {
+  success: boolean;
+  widgets: Widget[];
+  total: number;
+}
+
+export interface WidgetResponse {
+  success: boolean;
+  widget: Widget;
+}
+
+export interface RefreshIntervalOption {
+  value: number;
+  label: string;
+}
+
+/**
+ * Create a new widget.
+ */
+export async function createWidget(
+  userId: string,
+  data: CreateWidgetRequest
+): Promise<Widget> {
+  const response = await fetch(`${API_BASE_URL}/api/widgets`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-User-ID": userId,
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const errorData = (await response.json()) as ApiError;
+    throw new Error(errorData.error || "Failed to create widget");
+  }
+
+  const result = (await response.json()) as WidgetResponse;
+  return result.widget;
+}
+
+/**
+ * Get all widgets for a user.
+ */
+export async function getWidgets(userId: string): Promise<Widget[]> {
+  const response = await fetch(`${API_BASE_URL}/api/widgets`, {
+    headers: {
+      "X-User-ID": userId,
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = (await response.json()) as ApiError;
+    throw new Error(errorData.error || "Failed to get widgets");
+  }
+
+  const result = (await response.json()) as WidgetListResponse;
+  return result.widgets;
+}
+
+/**
+ * Get a specific widget by ID.
+ */
+export async function getWidgetById(
+  userId: string,
+  widgetId: string
+): Promise<Widget> {
+  const response = await fetch(`${API_BASE_URL}/api/widgets/${widgetId}`, {
+    headers: {
+      "X-User-ID": userId,
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = (await response.json()) as ApiError;
+    throw new Error(errorData.error || "Failed to get widget");
+  }
+
+  const result = (await response.json()) as WidgetResponse;
+  return result.widget;
+}
+
+/**
+ * Update a widget.
+ */
+export async function updateWidget(
+  userId: string,
+  widgetId: string,
+  data: Partial<CreateWidgetRequest>
+): Promise<Widget> {
+  const response = await fetch(`${API_BASE_URL}/api/widgets/${widgetId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "X-User-ID": userId,
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const errorData = (await response.json()) as ApiError;
+    throw new Error(errorData.error || "Failed to update widget");
+  }
+
+  const result = (await response.json()) as WidgetResponse;
+  return result.widget;
+}
+
+/**
+ * Delete a widget.
+ */
+export async function deleteWidget(
+  userId: string,
+  widgetId: string
+): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/widgets/${widgetId}`, {
+    method: "DELETE",
+    headers: {
+      "X-User-ID": userId,
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = (await response.json()) as ApiError;
+    throw new Error(errorData.error || "Failed to delete widget");
+  }
+}
+
+/**
+ * Refresh widget data manually.
+ */
+export async function refreshWidgetData(
+  userId: string,
+  widgetId: string
+): Promise<Widget> {
+  const response = await fetch(`${API_BASE_URL}/api/widgets/${widgetId}/refresh`, {
+    method: "POST",
+    headers: {
+      "X-User-ID": userId,
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = (await response.json()) as ApiError;
+    throw new Error(errorData.error || "Failed to refresh widget");
+  }
+
+  const result = (await response.json()) as WidgetResponse;
+  return result.widget;
+}
+
+/**
+ * Get supported refresh intervals.
+ */
+export async function getRefreshIntervals(): Promise<RefreshIntervalOption[]> {
+  const response = await fetch(`${API_BASE_URL}/api/widgets/intervals`);
+
+  if (!response.ok) {
+    throw new Error("Failed to get refresh intervals");
+  }
+
+  const result = (await response.json()) as { intervals: RefreshIntervalOption[] };
+  return result.intervals;
+}
+
+// =============================================================================
+// DASHBOARD API
+// =============================================================================
+
+/** Layout item for a widget in the dashboard (react-grid-layout format) */
+export interface DashboardLayoutItem {
+  i: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  minW?: number;
+  minH?: number;
+  maxW?: number;
+  maxH?: number;
+}
+
+/** Global filters for a dashboard */
+export interface GlobalFilters {
+  projectCode?: string;
+  dateRange?: {
+    start: string;
+    end: string;
+  };
+  environment?: string;
+}
+
+/** Dashboard type */
+export interface Dashboard {
+  id: string;
+  name: string;
+  description: string | null;
+  layout: DashboardLayoutItem[];
+  globalFilters: GlobalFilters | null;
+  isPublic: boolean;
+  shareToken: string | null;
+  shareExpiresAt: string | null;
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
+  widgetCount: number;
+}
+
+/** Dashboard with widgets included */
+export interface DashboardWithWidgets extends Dashboard {
+  widgets: {
+    id: string;
+    widgetId: string;
+    position: DashboardLayoutItem | null;
+    widget: {
+      id: string;
+      name: string;
+      description: string | null;
+      chartType: string;
+      chartConfig: unknown;
+      cachedData: unknown;
+      cachedAt: string | null;
+    };
+  }[];
+}
+
+export interface CreateDashboardRequest {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateDashboardRequest {
+  name?: string;
+  description?: string | null;
+  layout?: DashboardLayoutItem[];
+  globalFilters?: GlobalFilters | null;
+  isPublic?: boolean;
+}
+
+export interface DashboardListResponse {
+  success: boolean;
+  dashboards: Dashboard[];
+  total: number;
+}
+
+export interface DashboardResponse {
+  success: boolean;
+  dashboard: Dashboard;
+}
+
+export interface DashboardWithWidgetsResponse {
+  success: boolean;
+  dashboard: DashboardWithWidgets;
+}
+
+export interface DashboardLimitResponse {
+  success: boolean;
+  current: number;
+  limit: number;
+  remaining: number;
+}
+
+/**
+ * Create a new dashboard.
+ */
+export async function createDashboard(
+  userId: string,
+  data: CreateDashboardRequest
+): Promise<Dashboard> {
+  const response = await fetch(`${API_BASE_URL}/api/dashboards`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-User-ID": userId,
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const errorData = (await response.json()) as ApiError;
+    throw new Error(errorData.error || "Failed to create dashboard");
+  }
+
+  const result = (await response.json()) as DashboardResponse;
+  return result.dashboard;
+}
+
+/**
+ * Get all dashboards for a user.
+ */
+export async function getDashboards(userId: string): Promise<Dashboard[]> {
+  const response = await fetch(`${API_BASE_URL}/api/dashboards`, {
+    headers: {
+      "X-User-ID": userId,
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = (await response.json()) as ApiError;
+    throw new Error(errorData.error || "Failed to get dashboards");
+  }
+
+  const result = (await response.json()) as DashboardListResponse;
+  return result.dashboards;
+}
+
+/**
+ * Get a specific dashboard by ID.
+ */
+export async function getDashboardById(
+  userId: string,
+  dashboardId: string,
+  includeWidgets = false
+): Promise<Dashboard | DashboardWithWidgets> {
+  const url = includeWidgets
+    ? `${API_BASE_URL}/api/dashboards/${dashboardId}?includeWidgets=true`
+    : `${API_BASE_URL}/api/dashboards/${dashboardId}`;
+
+  const response = await fetch(url, {
+    headers: {
+      "X-User-ID": userId,
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = (await response.json()) as ApiError;
+    throw new Error(errorData.error || "Failed to get dashboard");
+  }
+
+  const result = (await response.json()) as DashboardResponse | DashboardWithWidgetsResponse;
+  return result.dashboard;
+}
+
+/**
+ * Update a dashboard.
+ */
+export async function updateDashboard(
+  userId: string,
+  dashboardId: string,
+  data: UpdateDashboardRequest
+): Promise<Dashboard> {
+  const response = await fetch(`${API_BASE_URL}/api/dashboards/${dashboardId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "X-User-ID": userId,
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const errorData = (await response.json()) as ApiError;
+    throw new Error(errorData.error || "Failed to update dashboard");
+  }
+
+  const result = (await response.json()) as DashboardResponse;
+  return result.dashboard;
+}
+
+/**
+ * Delete a dashboard.
+ */
+export async function deleteDashboard(
+  userId: string,
+  dashboardId: string
+): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/dashboards/${dashboardId}`, {
+    method: "DELETE",
+    headers: {
+      "X-User-ID": userId,
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = (await response.json()) as ApiError;
+    throw new Error(errorData.error || "Failed to delete dashboard");
+  }
+}
+
+/**
+ * Duplicate a dashboard.
+ */
+export async function duplicateDashboard(
+  userId: string,
+  dashboardId: string,
+  newName?: string
+): Promise<Dashboard> {
+  const response = await fetch(`${API_BASE_URL}/api/dashboards/${dashboardId}/duplicate`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-User-ID": userId,
+    },
+    body: JSON.stringify({ name: newName }),
+  });
+
+  if (!response.ok) {
+    const errorData = (await response.json()) as ApiError;
+    throw new Error(errorData.error || "Failed to duplicate dashboard");
+  }
+
+  const result = (await response.json()) as DashboardResponse;
+  return result.dashboard;
+}
+
+/**
+ * Get dashboard limit info for a user.
+ */
+export async function getDashboardLimitInfo(userId: string): Promise<DashboardLimitResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/dashboards/limit`, {
+    headers: {
+      "X-User-ID": userId,
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = (await response.json()) as ApiError;
+    throw new Error(errorData.error || "Failed to get dashboard limit");
+  }
+
+  return response.json() as Promise<DashboardLimitResponse>;
+}

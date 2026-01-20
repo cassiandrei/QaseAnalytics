@@ -4,18 +4,22 @@
  * MessageList Component
  *
  * Displays the list of chat messages with auto-scroll functionality.
+ *
+ * @see US-026: Salvar Gráfico como Widget
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useMemo } from "react";
 import { ChatMessage } from "./ChatMessage";
 import { TypingIndicator } from "./TypingIndicator";
 import type { ChatMessage as ChatMessageType } from "../../lib/api";
+import type { SaveWidgetData } from "./SaveWidgetModal";
 
 export interface MessageListProps {
   messages: ChatMessageType[];
   isStreaming: boolean;
   isLoading: boolean;
   onSendMessage?: (message: string) => void;
+  onSaveWidget?: (data: SaveWidgetData) => Promise<void>;
 }
 
 export function MessageList({
@@ -23,6 +27,7 @@ export function MessageList({
   isStreaming,
   isLoading,
   onSendMessage,
+  onSaveWidget,
 }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -33,6 +38,25 @@ export function MessageList({
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, isStreaming]);
+
+  // Map of assistant message index to the previous user query
+  const userQueryMap = useMemo(() => {
+    const map = new Map<number, string>();
+    for (let i = 0; i < messages.length; i++) {
+      const currentMsg = messages[i];
+      if (currentMsg?.role === "assistant" && i > 0) {
+        // Find the most recent user message before this assistant message
+        for (let j = i - 1; j >= 0; j--) {
+          const prevMsg = messages[j];
+          if (prevMsg?.role === "user" && prevMsg.content) {
+            map.set(i, prevMsg.content);
+            break;
+          }
+        }
+      }
+    }
+    return map;
+  }, [messages]);
 
   // Empty state
   if (messages.length === 0 && !isLoading) {
@@ -117,6 +141,8 @@ export function MessageList({
             message.role === "assistant" &&
             index === messages.length - 1
           }
+          userQuery={message.role === "assistant" ? userQueryMap.get(index) : undefined}
+          onSaveWidget={onSaveWidget}
         />
       ))}
 

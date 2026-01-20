@@ -4,13 +4,17 @@
  * ChatContainer Component
  *
  * Main container that orchestrates all chat components.
+ *
+ * @see US-026: Salvar Gráfico como Widget
  */
 
 import { useEffect, useCallback } from "react";
 import { useChat } from "../../hooks/use-chat";
+import { useWidgets } from "../../hooks/use-widgets";
 import { ChatHeader } from "./ChatHeader";
 import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
+import type { SaveWidgetData } from "./SaveWidgetModal";
 
 export interface ChatContainerProps {
   userId?: string;
@@ -28,6 +32,8 @@ export function ChatContainer({ userId: propUserId }: ChatContainerProps) {
     clearHistory,
     setUserId,
   } = useChat();
+
+  const { createWidget } = useWidgets({ userId, autoFetch: false });
 
   // Set userId from props or generate a demo one
   useEffect(() => {
@@ -52,6 +58,28 @@ export function ChatContainer({ userId: propUserId }: ChatContainerProps) {
       clearHistory();
     }
   }, [clearHistory]);
+
+  const handleSaveWidget = useCallback(
+    async (data: SaveWidgetData) => {
+      await createWidget({
+        name: data.name,
+        description: data.description,
+        query: data.query,
+        chartType: data.chartType,
+        chartConfig: {
+          title: data.chartConfig.title,
+          xAxis: data.chartConfig.xAxisLabel,
+          yAxis: data.chartConfig.yAxisLabel,
+          colors: data.chartConfig.colors,
+          legend: data.chartConfig.showLegend,
+          data: data.chartConfig.data,
+        },
+        refreshInterval: data.refreshInterval,
+        cachedData: data.cachedData,
+      });
+    },
+    [createWidget]
+  );
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
@@ -91,6 +119,7 @@ export function ChatContainer({ userId: propUserId }: ChatContainerProps) {
         isStreaming={isStreaming}
         isLoading={isLoading}
         onSendMessage={handleSend}
+        onSaveWidget={userId ? handleSaveWidget : undefined}
       />
 
       {/* Input */}

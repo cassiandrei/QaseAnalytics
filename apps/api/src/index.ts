@@ -7,6 +7,9 @@ import { prettyJSON } from "hono/pretty-json";
 import { healthRoutes } from "./routes/health.js";
 import { qaseRoutes } from "./routes/qase.js";
 import { chatRoutes } from "./routes/chat.js";
+import { widgetRoutes } from "./routes/widget.routes.js";
+import { dashboardRoutes } from "./routes/dashboard.routes.js";
+import { startWidgetRefreshJob } from "./jobs/widget-refresh.job.js";
 
 /** Tipo de variáveis de contexto para o Hono */
 type AppVariables = {
@@ -41,6 +44,8 @@ app.use("/api/*", async (c, next) => {
 app.route("/health", healthRoutes);
 app.route("/api/qase", qaseRoutes);
 app.route("/api/chat", chatRoutes);
+app.route("/api/widgets", widgetRoutes);
+app.route("/api/dashboards", dashboardRoutes);
 
 // Root
 app.get("/", (c) => {
@@ -72,3 +77,6 @@ serve({
 });
 
 console.log(`QaseAnalytics API running at http://localhost:${port}`);
+
+// Start background jobs
+startWidgetRefreshJob();

@@ -9,6 +9,7 @@
  *
  * @see US-016: Tela de Chat
  * @see US-017: Preview de Gráficos no Chat
+ * @see US-026: Salvar Gráfico como Widget
  */
 
 import { useState, useCallback, useMemo } from "react";
@@ -21,10 +22,15 @@ import {
   extractChartsFromContent,
   type ChartConfig,
 } from "../charts";
+import { SaveWidgetModal, type SaveWidgetData } from "./SaveWidgetModal";
 
 export interface ChatMessageProps {
   message: ChatMessageType;
   isStreaming?: boolean;
+  /** The user query that generated this response (for assistant messages) */
+  userQuery?: string;
+  /** Callback to save a chart as widget */
+  onSaveWidget?: (data: SaveWidgetData) => Promise<void>;
 }
 
 /**
@@ -103,9 +109,15 @@ function MarkdownContent({ content }: { content: string }) {
   );
 }
 
-export function ChatMessage({ message, isStreaming = false }: ChatMessageProps) {
+export function ChatMessage({
+  message,
+  isStreaming = false,
+  userQuery,
+  onSaveWidget,
+}: ChatMessageProps) {
   const isUser = message.role === "user";
   const [expandedChart, setExpandedChart] = useState<ChartConfig | null>(null);
+  const [saveWidgetModalConfig, setSaveWidgetModalConfig] = useState<ChartConfig | null>(null);
 
   // Parse content for charts (only for assistant messages)
   const contentSegments = useMemo(() => {
@@ -127,10 +139,27 @@ export function ChatMessage({ message, isStreaming = false }: ChatMessageProps) 
   }, []);
 
   const handleSaveAsWidget = useCallback((config: ChartConfig) => {
-    // TODO: Implement save as widget (US-026)
-    console.log("Save as widget:", config);
-    alert("Funcionalidade de salvar como widget será implementada em breve!");
+    if (onSaveWidget && userQuery) {
+      setSaveWidgetModalConfig(config);
+    } else {
+      // Fallback message if widget saving is not available
+      console.log("Save as widget not available:", { config, userQuery, onSaveWidget });
+      alert("Para salvar como widget, é necessário estar autenticado.");
+    }
+  }, [onSaveWidget, userQuery]);
+
+  const handleCloseSaveModal = useCallback(() => {
+    setSaveWidgetModalConfig(null);
   }, []);
+
+  const handleSaveWidget = useCallback(
+    async (data: SaveWidgetData) => {
+      if (onSaveWidget) {
+        await onSaveWidget(data);
+      }
+    },
+    [onSaveWidget]
+  );
 
   return (
     <>
@@ -240,6 +269,17 @@ export function ChatMessage({ message, isStreaming = false }: ChatMessageProps) 
           isOpen={true}
           onClose={handleCloseModal}
           onSaveAsWidget={handleSaveAsWidget}
+        />
+      )}
+
+      {/* Save widget modal */}
+      {saveWidgetModalConfig && userQuery && (
+        <SaveWidgetModal
+          isOpen={true}
+          onClose={handleCloseSaveModal}
+          chartConfig={saveWidgetModalConfig}
+          userQuery={userQuery}
+          onSave={handleSaveWidget}
         />
       )}
     </>
