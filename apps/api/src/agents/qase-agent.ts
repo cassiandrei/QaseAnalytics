@@ -195,21 +195,29 @@ export class QaseAgent {
         projectCode: this.config.projectCode ?? "all",
       };
 
+      // Obtém histórico de chat para passar ao prompt
+      const chatHistory = await this.memory.getMessages();
+
       // Executa o agente
       const result = await executor.invoke({
         input,
+        chat_history: chatHistory,
         ...context,
       });
 
       // Extrai tools utilizadas
       const toolsUsed = this.extractToolsUsed(result.intermediateSteps);
 
+      // Salva a interação na memória global (igual ao chatStream)
+      await this.memory.addHumanMessage(input);
+      await this.memory.addAIMessage(result.output);
+
       // Obtém histórico atualizado
-      const chatHistory = await this.memory.getMessages();
+      const updatedHistory = await this.memory.getMessages();
 
       return {
         output: result.output,
-        chatHistory,
+        chatHistory: updatedHistory,
         toolsUsed,
         durationMs: Date.now() - startTime,
       };
