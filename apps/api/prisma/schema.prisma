@@ -29,6 +29,11 @@ model User {
   // BYOK (Bring Your Own Key) - OpenAI
   openaiApiKey     String?  @map("openai_api_key") // Encrypted with AES-256-GCM
 
+  // Invoice DB credentials (encrypted)
+  invoiceDbUrl         String?   @map("invoice_db_url") // Encrypted connection string
+  invoiceDbValid       Boolean   @default(false) @map("invoice_db_valid")
+  invoiceDbConnectedAt DateTime? @map("invoice_db_connected_at")
+
   // Tier/Plan
   tier             UserTier @default(FREE)
   dailyMessagesUsed Int     @default(0) @map("daily_messages_used")

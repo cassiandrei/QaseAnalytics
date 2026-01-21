@@ -20,6 +20,18 @@ export const CACHE_TTL = {
   TEST_RUNS: 2 * 60,
   /** Cache de resultados detalhados: 5 minutos (US-008) */
   RESULTS: 5 * 60,
+  /** Cache de receita de invoices: 10 minutos */
+  INVOICE_REVENUE: 10 * 60,
+  /** Cache de impostos: 15 minutos */
+  INVOICE_TAX: 15 * 60,
+  /** Cache de clientes: 10 minutos */
+  INVOICE_CLIENTS: 10 * 60,
+  /** Cache de itens: 5 minutos */
+  INVOICE_ITEMS: 5 * 60,
+  /** Cache de busca de invoices: 2 minutos */
+  INVOICE_SEARCH: 2 * 60,
+  /** Cache de séries de invoices: 15 minutos */
+  INVOICE_SERIES: 15 * 60,
 } as const;
 
 /** Prefixos de chave para organização do cache */
@@ -46,6 +58,29 @@ export const CACHE_KEYS = {
   /** Prefixo para resultado específico */
   testResult: (userId: string, projectCode: string, hash: string) =>
     `qase:result:${userId}:${projectCode}:${hash}`,
+  /** Prefixo para receita de invoices */
+  invoiceRevenue: (userId: string, start: string, end: string, groupBy: string) =>
+    `invoice:revenue:${userId}:${start}:${end}:${groupBy}`,
+  /** Prefixo para breakdown de impostos */
+  invoiceTax: (userId: string, start: string, end: string) =>
+    `invoice:tax:${userId}:${start}:${end}`,
+  /** Prefixo para top clientes */
+  invoiceClients: (userId: string, start: string, end: string) =>
+    `invoice:clients:${userId}:${start}:${end}`,
+  /** Prefixo para análise de itens */
+  invoiceItems: (userId: string, filterHash: string, sortBy: string) =>
+    `invoice:items:${userId}:${filterHash}:${sortBy}`,
+  /** Prefixo para busca de invoices */
+  invoiceSearch: (userId: string, filterHash: string) =>
+    `invoice:search:${userId}:${filterHash}`,
+  /** Prefixo para lista de séries */
+  invoiceSeries: (userId: string) => `invoice:series:${userId}`,
+  /** Prefixo para detalhes de invoice específica */
+  invoiceDetails: (userId: string, invoiceId: number, includeItems: boolean) =>
+    `invoice:details:${userId}:${invoiceId}:${includeItems}`,
+  /** Prefixo para eventos de invoice */
+  invoiceEvents: (userId: string, invoiceId: number) =>
+    `invoice:events:${userId}:${invoiceId}`,
 } as const;
 
 /**

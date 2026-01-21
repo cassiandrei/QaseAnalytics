@@ -10,6 +10,10 @@ const envSchema = z.object({
   // Redis
   REDIS_URL: z.string().url().optional(),
 
+  // Invoice Database (ERP - read-only)
+  INVOICE_DATABASE_URL: z.string().url().optional(),
+  INVOICE_DB_ENCRYPTION_KEY: z.string().min(32).optional(),
+
   // Qase API
   QASE_API_TOKEN: z.string().optional(),
 

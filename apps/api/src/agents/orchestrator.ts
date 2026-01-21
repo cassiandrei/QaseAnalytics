@@ -14,6 +14,8 @@ import { z } from "zod";
 
 import { listProjectsWithCache } from "../tools/index.js";
 import { getOrCreateAgent, type QaseAgentConfig } from "./qase-agent.js";
+import { getOrCreateInvoiceAgent, type InvoiceAgentConfig } from "./invoice-agent.js";
+import { getInvoiceConnectionForUser } from "../services/invoice.service.js";
 import { globalMemoryStore } from "./memory.js";
 
 /** Projeto simplificado */
@@ -34,6 +36,8 @@ export const OrchestratorState = Annotation.Root({
   openAIApiKey: Annotation<string>,
   /** Código do projeto selecionado */
   projectCode: Annotation<string | null>,
+  /** Company ID para filtrar invoices */
+  companyId: Annotation<number | null>,
   /** Lista de projetos disponíveis */
   projects: Annotation<Project[] | null>,
   /** Flag indicando se precisa selecionar projeto */
@@ -55,7 +59,7 @@ export const OrchestratorState = Annotation.Root({
   /** Erro durante execução */
   error: Annotation<string | null>,
   /** Intent classificado */
-  intent: Annotation<"query_data" | "list_projects" | "select_project" | "general">,
+  intent: Annotation<"query_data" | "list_projects" | "select_project" | "invoice_analysis" | "general">,
 });
 
 /** Tipo do estado */
@@ -94,7 +98,7 @@ function createClassifierLLM(apiKey: string): ChatOpenAI {
  * Schema para classificação de intent.
  */
 const IntentSchema = z.object({
-  intent: z.enum(["query_data", "list_projects", "select_project", "general"]).describe(
+  intent: z.enum(["query_data", "list_projects", "select_project", "invoice_analysis", "general"]).describe(
     "The classified intent of the user message"
   ),
   needsProject: z.boolean().describe("Whether this intent requires a project to be selected"),
@@ -117,12 +121,13 @@ async function classifyIntent(
     [
       {
         role: "system",
-        content: `You are an intent classifier for a QA analytics assistant that works with Qase.io.
+        content: `You are an intent classifier for an analytics assistant that works with Qase.io and invoice/billing data.
 
 Classify the user's message into one of these intents:
-- "list_projects": User wants to see their available projects
-- "select_project": User wants to select/change the active project
-- "query_data": User wants to query test data (cases, runs, results, metrics)
+- "list_projects": User wants to see their available Qase projects
+- "select_project": User wants to select/change the active Qase project
+- "query_data": User wants to query Qase test data (cases, runs, results, metrics)
+- "invoice_analysis": User wants to analyze invoices, billing, revenue, taxes (NF-e, faturamento, impostos)
 - "general": General conversation, greetings, or unclear intent
 
 Also determine:
@@ -132,13 +137,16 @@ Also determine:
 Examples:
 - "quais são meus projetos?" -> list_projects, needsProject: false
 - "mostre os casos de teste" -> query_data, needsProject: true
-- "mostre os casos do projeto GV" -> query_data, needsProject: false (project mentioned)
 - "use o projeto DEMO" -> select_project, needsProject: false
+- "qual o faturamento de janeiro?" -> invoice_analysis, needsProject: false
+- "mostre as NF-e canceladas" -> invoice_analysis, needsProject: false
+- "quanto foi pago de ICMS?" -> invoice_analysis, needsProject: false
+- "receita dos últimos 3 meses" -> invoice_analysis, needsProject: false
 - "olá" -> general, needsProject: false
 - "qual a taxa de falha?" -> query_data, needsProject: true
 
 Respond with a JSON object with these exact fields:
-- intent: one of "query_data", "list_projects", "select_project", "general"
+- intent: one of "query_data", "list_projects", "select_project", "invoice_analysis", "general"
 - needsProject: boolean
 - extractedProjectCode: string or null`,
       },
@@ -331,6 +339,58 @@ async function executeAgentNode(
 }
 
 /**
+ * Node: Executes InvoiceAgent for invoice/billing analysis.
+ */
+async function executeInvoiceAgentNode(
+  state: OrchestratorStateType
+): Promise<Partial<OrchestratorStateType>> {
+  const startTime = Date.now();
+
+  try {
+    // Get invoice DB connection string for user (or use global fallback)
+    const invoiceDbUrl = await getInvoiceConnectionForUser(state.userId);
+
+    if (!invoiceDbUrl) {
+      return {
+        response: "Banco de dados de invoices não configurado. Entre em contato com o administrador.",
+        error: "No invoice database connection available",
+        durationMs: Date.now() - startTime,
+        needsProjectSelection: false,
+      };
+    }
+
+    const config: InvoiceAgentConfig = {
+      openAIApiKey: state.openAIApiKey,
+      userId: state.userId,
+      invoiceDbUrl,
+      companyId: state.companyId ?? undefined,
+    };
+
+    const agent = getOrCreateInvoiceAgent(config);
+    const result = await agent.chat(state.input);
+
+    return {
+      response: result.output,
+      toolsUsed: result.toolsUsed,
+      durationMs: Date.now() - startTime,
+      messages: [new AIMessage(result.output)],
+      needsProjectSelection: false,
+    };
+  } catch (error) {
+    console.error("[InvoiceAgent] Error executing invoice agent:", error);
+    if (error instanceof Error) {
+      console.error("[InvoiceAgent] Error stack:", error.stack);
+    }
+    return {
+      response: "Ocorreu um erro ao processar sua consulta de faturamento. Por favor, tente novamente.",
+      error: error instanceof Error ? error.message : "Unknown error",
+      durationMs: Date.now() - startTime,
+      needsProjectSelection: false,
+    };
+  }
+}
+
+/**
  * Node: Responde com listagem de projetos.
  */
 async function listProjectsNode(
@@ -460,7 +520,7 @@ IMPORTANT: Use the conversation history to understand context. If the user refer
  */
 function routeAfterIntent(
   state: OrchestratorStateType
-): "resolveProject" | "executeAgent" | "listProjects" | "selectProject" | "generalResponse" {
+): "resolveProject" | "executeAgent" | "executeInvoiceAgent" | "listProjects" | "selectProject" | "generalResponse" {
   // Se houve erro, vai para resposta geral
   if (state.error) {
     return "generalResponse";
@@ -483,6 +543,9 @@ function routeAfterIntent(
         return "resolveProject";
       }
       return "executeAgent";
+
+    case "invoice_analysis":
+      return "executeInvoiceAgent";
 
     case "general":
     default:
@@ -515,6 +578,7 @@ export function createOrchestratorGraph() {
     .addNode("resolveProject", resolveProjectNode)
     .addNode("askProjectSelection", askProjectSelectionNode)
     .addNode("executeAgent", executeAgentNode)
+    .addNode("executeInvoiceAgent", executeInvoiceAgentNode)
     .addNode("listProjects", listProjectsNode)
     .addNode("selectProject", selectProjectNode)
     .addNode("generalResponse", generalResponseNode)
@@ -524,6 +588,7 @@ export function createOrchestratorGraph() {
     .addConditionalEdges("analyzeIntent", routeAfterIntent, [
       "resolveProject",
       "executeAgent",
+      "executeInvoiceAgent",
       "listProjects",
       "selectProject",
       "generalResponse",
@@ -534,6 +599,7 @@ export function createOrchestratorGraph() {
     ])
     .addEdge("askProjectSelection", END)
     .addEdge("executeAgent", END)
+    .addEdge("executeInvoiceAgent", END)
     .addEdge("listProjects", END)
     .addEdge("selectProject", END)
     .addEdge("generalResponse", END);
