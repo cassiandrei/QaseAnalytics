@@ -19,6 +19,7 @@ import {
   createGetTaxBreakdownToolWithContext,
   createSearchInvoicesToolWithContext,
   createGetInvoiceEventsToolWithContext,
+  createGetInvoiceErrorsToolWithContext,
   createGenerateChartTool,
 } from '../tools/index.js';
 
@@ -116,6 +117,7 @@ export class InvoiceAgent {
       createGetTaxBreakdownToolWithContext(userId, companyId),
       createSearchInvoicesToolWithContext(userId, companyId),
       createGetInvoiceEventsToolWithContext(userId),
+      createGetInvoiceErrorsToolWithContext(userId, companyId),
       createGenerateChartTool(), // Tool para gerar gráficos
     ];
   }

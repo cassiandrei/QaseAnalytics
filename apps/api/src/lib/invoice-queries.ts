@@ -43,13 +43,13 @@ export async function getRevenueByPeriod(params: {
   let whereConditions = 'WHERE issue_date >= $1 AND issue_date <= $2';
 
   if (companyId) {
-    whereConditions += ` AND company_id = $${paramIndex}`;
+    whereConditions += ` AND company_place_id = $${paramIndex}`;
     queryParams.push(companyId);
     paramIndex++;
   }
 
   if (seriesId) {
-    whereConditions += ` AND series_id = $${paramIndex}`;
+    whereConditions += ` AND invoice_serie_id = $${paramIndex}`;
     queryParams.push(seriesId);
     paramIndex++;
   }
@@ -64,28 +64,34 @@ export async function getRevenueByPeriod(params: {
     SELECT
       TO_CHAR(issue_date, '${dateFormat}') as period,
       COUNT(*)::int as total_invoices,
-      COALESCE(SUM(total_value), 0)::numeric as total_revenue,
+      COALESCE(SUM(total_amount_gross), 0)::numeric as total_revenue,
       COALESCE(SUM(
-        COALESCE(icms_value, 0) +
-        COALESCE(ipi_value, 0) +
-        COALESCE(issqn_value, 0) +
-        COALESCE(pis_value, 0) +
-        COALESCE(cofins_value, 0) +
-        COALESCE(inss_value, 0) +
-        COALESCE(irrf_value, 0) +
-        COALESCE(csll_value, 0) +
-        COALESCE(fcp_value, 0) +
-        COALESCE(fust_value, 0) +
-        COALESCE(funttel_value, 0) +
-        COALESCE(ibs_value, 0) +
-        COALESCE(cbs_value, 0)
+        COALESCE(icms_amount, 0) +
+        COALESCE(ipi_amount, 0) +
+        COALESCE(issqn_amount, 0) +
+        COALESCE(pis_amount, 0) +
+        COALESCE(cofins_amount, 0) +
+        COALESCE(inss_amount, 0) +
+        COALESCE(irrf_amount, 0) +
+        COALESCE(csll_amount, 0) +
+        COALESCE(icms_fcp_amount, 0) +
+        COALESCE(fust_amount, 0) +
+        COALESCE(funttel_amount, 0) +
+        COALESCE(state_ibs_amount, 0) +
+        COALESCE(municipal_ibs_amount, 0) +
+        COALESCE(cbs_amount, 0)
       ), 0)::numeric as total_taxes,
-      COALESCE(AVG(total_value), 0)::numeric as average_value,
+      COALESCE(AVG(total_amount_gross), 0)::numeric as average_value,
       status,
-      status_description
+      CASE status
+        WHEN 1 THEN 'Autorizada'
+        WHEN 3 THEN 'Em Processamento'
+        WHEN 9 THEN 'Cancelada'
+        ELSE 'Outro'
+      END as status_description
     FROM erp.invoice_notes
     ${whereConditions}
-    GROUP BY TO_CHAR(issue_date, '${dateFormat}'), status, status_description
+    GROUP BY TO_CHAR(issue_date, '${dateFormat}'), status
     ORDER BY period DESC, status
   `;
 
@@ -146,23 +152,36 @@ export async function getTaxBreakdown(params: {
   let whereConditions = 'WHERE issue_date >= $1 AND issue_date <= $2';
 
   if (companyId) {
-    whereConditions += ` AND company_id = $${paramIndex}`;
+    whereConditions += ` AND company_place_id = $${paramIndex}`;
     queryParams.push(companyId);
     paramIndex++;
   }
 
-  // Define all tax types to query
-  const allTaxTypes = [
-    'ICMS', 'IPI', 'ISSQN', 'PIS', 'COFINS',
-    'INSS', 'IRRF', 'CSLL', 'FCP', 'FUST',
-    'FUNTTEL', 'IBS', 'CBS'
-  ];
+  // Map tax types to actual column names
+  // Note: ISS is an alias for ISSQN (common user input)
+  const taxColumnMap: Record<string, string> = {
+    'ICMS': 'icms_amount',
+    'IPI': 'ipi_amount',
+    'ISSQN': 'issqn_amount',
+    'ISS': 'issqn_amount', // Alias for ISSQN (common user input)
+    'PIS': 'pis_amount',
+    'COFINS': 'cofins_amount',
+    'INSS': 'inss_amount',
+    'IRRF': 'irrf_amount',
+    'CSLL': 'csll_amount',
+    'FCP': 'icms_fcp_amount',
+    'FUST': 'fust_amount',
+    'FUNTTEL': 'funttel_amount',
+    'IBS': 'state_ibs_amount',
+    'CBS': 'cbs_amount',
+  };
 
+  const allTaxTypes = Object.keys(taxColumnMap);
   const taxesToQuery = taxTypes && taxTypes.length > 0 ? taxTypes : allTaxTypes;
 
   // Build UNION ALL query for each tax type
   const taxQueries = taxesToQuery.map(taxType => {
-    const column = `${taxType.toLowerCase()}_value`;
+    const column = taxColumnMap[taxType] || `${taxType.toLowerCase()}_amount`;
     return `
       SELECT
         '${taxType}' as tax_type,
@@ -212,26 +231,31 @@ export async function getInvoiceStatusMetrics(params: {
 
   if (companyId) {
     whereConditions += whereConditions ? ' AND' : 'WHERE';
-    whereConditions += ` company_id = $${paramIndex}`;
+    whereConditions += ` company_place_id = $${paramIndex}`;
     queryParams.push(companyId);
     paramIndex++;
   }
 
   const query = `
     WITH totals AS (
-      SELECT COALESCE(SUM(total_value), 0) as grand_total
+      SELECT COALESCE(SUM(total_amount_gross), 0) as grand_total
       FROM erp.invoice_notes
       ${whereConditions}
     )
     SELECT
       status,
-      status_description,
+      CASE status
+        WHEN 1 THEN 'Autorizada'
+        WHEN 3 THEN 'Em Processamento'
+        WHEN 9 THEN 'Cancelada'
+        ELSE 'Outro'
+      END as status_description,
       COUNT(*)::int as count,
-      COALESCE(SUM(total_value), 0)::numeric as total_value,
-      (COALESCE(SUM(total_value), 0) / NULLIF((SELECT grand_total FROM totals), 0) * 100)::numeric as percentage
+      COALESCE(SUM(total_amount_gross), 0)::numeric as total_value,
+      (COALESCE(SUM(total_amount_gross), 0) / NULLIF((SELECT grand_total FROM totals), 0) * 100)::numeric as percentage
     FROM erp.invoice_notes
     ${whereConditions}
-    GROUP BY status, status_description
+    GROUP BY status
     ORDER BY total_value DESC
   `;
 
@@ -246,7 +270,7 @@ export async function getInvoiceStatusMetrics(params: {
 
 /**
  * Get top clients by revenue
- * Uses index: idx_invoice_notes_customer_id
+ * Uses index: idx_invoice_notes_client_id
  */
 export async function getTopClientsByRevenue(params: {
   startDate?: Date;
@@ -269,24 +293,24 @@ export async function getTopClientsByRevenue(params: {
 
   if (companyId) {
     whereConditions += whereConditions ? ' AND' : 'WHERE';
-    whereConditions += ` company_id = $${paramIndex}`;
+    whereConditions += ` company_place_id = $${paramIndex}`;
     queryParams.push(companyId);
     paramIndex++;
   }
 
   const query = `
     SELECT
-      customer_id,
-      MAX(customer_name) as customer_name,
-      MAX(customer_document) as customer_document,
+      client_id as customer_id,
+      MAX(client_name) as customer_name,
+      MAX(client_tx_id) as customer_document,
       COUNT(*)::int as total_invoices,
-      COALESCE(SUM(total_value), 0)::numeric as total_revenue,
-      COALESCE(AVG(total_value), 0)::numeric as average_invoice_value,
+      COALESCE(SUM(total_amount_gross), 0)::numeric as total_revenue,
+      COALESCE(AVG(total_amount_gross), 0)::numeric as average_invoice_value,
       MIN(issue_date) as first_purchase,
       MAX(issue_date) as last_purchase
     FROM erp.invoice_notes
     ${whereConditions}
-    GROUP BY customer_id
+    GROUP BY client_id
     HAVING COUNT(*) >= $${paramIndex}
     ORDER BY total_revenue DESC
     LIMIT $${paramIndex + 1}
@@ -329,13 +353,13 @@ export async function getItemAnalytics(params: {
   }
 
   if (companyId) {
-    joinConditions += ` AND n.company_id = $${paramIndex}`;
+    joinConditions += ` AND n.company_place_id = $${paramIndex}`;
     queryParams.push(companyId);
     paramIndex++;
   }
 
   if (productIds && productIds.length > 0) {
-    whereConditions = `WHERE i.product_id = ANY($${paramIndex}::int[])`;
+    whereConditions = `WHERE i.service_product_id = ANY($${paramIndex}::int[])`;
     queryParams.push(productIds);
     paramIndex++;
   }
@@ -348,19 +372,19 @@ export async function getItemAnalytics(params: {
 
   const query = `
     SELECT
-      i.product_id,
-      MAX(i.product_code) as product_code,
-      MAX(i.product_name) as product_name,
-      COALESCE(SUM(i.quantity), 0)::numeric as total_quantity,
-      COALESCE(SUM(i.total_value), 0)::numeric as total_revenue,
+      i.service_product_id as product_id,
+      MAX(i.service_code_provided) as product_code,
+      MAX(i.description) as product_name,
+      COALESCE(SUM(i.units), 0)::numeric as total_quantity,
+      COALESCE(SUM(i.total_amount), 0)::numeric as total_revenue,
       COUNT(DISTINCT i.invoice_note_id)::int as invoice_count,
-      COALESCE(AVG(i.unit_value), 0)::numeric as average_price,
-      COALESCE(SUM(i.discount_value), 0)::numeric as total_discount
+      COALESCE(AVG(i.unit_amount), 0)::numeric as average_price,
+      COALESCE(SUM(i.discount), 0)::numeric as total_discount
     FROM erp.invoice_note_items i
     INNER JOIN erp.invoice_notes n ON n.id = i.invoice_note_id
       ${joinConditions}
     ${whereConditions}
-    GROUP BY i.product_id
+    GROUP BY i.service_product_id
     ORDER BY ${sortColumn} DESC
     LIMIT $${paramIndex}
   `;
@@ -420,19 +444,19 @@ export async function getPaginatedInvoices(params: {
   }
 
   if (companyId) {
-    whereConditions.push(`company_id = $${paramIndex}`);
+    whereConditions.push(`company_place_id = $${paramIndex}`);
     queryParams.push(companyId);
     paramIndex++;
   }
 
   if (customerId) {
-    whereConditions.push(`customer_id = $${paramIndex}`);
+    whereConditions.push(`client_id = $${paramIndex}`);
     queryParams.push(customerId);
     paramIndex++;
   }
 
   if (seriesId) {
-    whereConditions.push(`series_id = $${paramIndex}`);
+    whereConditions.push(`invoice_serie_id = $${paramIndex}`);
     queryParams.push(seriesId);
     paramIndex++;
   }
@@ -444,20 +468,20 @@ export async function getPaginatedInvoices(params: {
   }
 
   if (minValue !== undefined) {
-    whereConditions.push(`total_value >= $${paramIndex}`);
+    whereConditions.push(`total_amount_gross >= $${paramIndex}`);
     queryParams.push(minValue);
     paramIndex++;
   }
 
   if (maxValue !== undefined) {
-    whereConditions.push(`total_value <= $${paramIndex}`);
+    whereConditions.push(`total_amount_gross <= $${paramIndex}`);
     queryParams.push(maxValue);
     paramIndex++;
   }
 
   if (searchTerm) {
     whereConditions.push(
-      `(customer_name ILIKE $${paramIndex} OR invoice_number ILIKE $${paramIndex} OR nfe_number ILIKE $${paramIndex})`
+      `(client_name ILIKE $${paramIndex} OR document_number::text ILIKE $${paramIndex} OR rps_key ILIKE $${paramIndex})`
     );
     queryParams.push(`%${searchTerm}%`);
     paramIndex++;
@@ -479,19 +503,24 @@ export async function getPaginatedInvoices(params: {
   const dataQuery = `
     SELECT
       n.id,
-      n.invoice_number,
+      n.document_number as invoice_number,
       n.issue_date,
-      n.customer_id,
-      n.customer_name,
-      n.customer_document,
-      n.total_value,
+      n.client_id as customer_id,
+      n.client_name as customer_name,
+      n.client_tx_id as customer_document,
+      n.total_amount_gross as total_value,
       n.status,
-      n.status_description,
-      n.nfe_key,
-      n.nfe_number,
-      s.name as series_name
+      CASE n.status
+        WHEN 1 THEN 'Autorizada'
+        WHEN 3 THEN 'Em Processamento'
+        WHEN 9 THEN 'Cancelada'
+        ELSE 'Outro'
+      END as status_description,
+      n.rps_key as nfe_key,
+      n.rps_number as nfe_number,
+      s.title as series_name
     FROM erp.invoice_notes n
-    LEFT JOIN erp.invoice_series s ON s.id = n.series_id
+    LEFT JOIN erp.invoice_series s ON s.id = n.invoice_serie_id
     ${whereClause}
     ORDER BY n.issue_date DESC, n.id DESC
     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -523,21 +552,21 @@ export async function getInvoiceSeries(params: {
 
   const queryParams: unknown[] = [];
   let paramIndex = 1;
-  const whereConditions: string[] = [];
+  const whereConditions: string[] = ['deleted = false'];
 
   if (active !== undefined) {
-    whereConditions.push(`is_active = $${paramIndex}`);
+    whereConditions.push(`active = $${paramIndex}`);
     queryParams.push(active);
     paramIndex++;
   }
 
   if (companyId) {
-    whereConditions.push(`company_id = $${paramIndex}`);
+    whereConditions.push(`company_place_id = $${paramIndex}`);
     queryParams.push(companyId);
     paramIndex++;
   }
 
-  const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+  const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
 
   const query = `
     SELECT
@@ -550,7 +579,6 @@ export async function getInvoiceSeries(params: {
       created
     FROM erp.invoice_series
     ${whereClause}
-    AND deleted = false
     ORDER BY title
   `;
 
@@ -585,7 +613,7 @@ export async function getInvoiceDetails(params: {
 
   if (includeItems) {
     const itemsQuery = `
-      SELECT * FROM erp.invoice_note_items WHERE invoice_note_id = $1 ORDER BY item_number
+      SELECT * FROM erp.invoice_note_items WHERE invoice_note_id = $1 ORDER BY sequence
     `;
 
     const itemsResult = await queryInvoiceDb<InvoiceNoteItem>(itemsQuery, [invoiceId]);
@@ -612,10 +640,118 @@ export async function getInvoiceEvents(params: {
     SELECT *
     FROM erp.invoice_note_events
     WHERE invoice_note_id = $1
-    ORDER BY created_at DESC
+    ORDER BY created DESC
     LIMIT $2
   `;
 
   const result = await queryInvoiceDb<InvoiceNoteEvent>(query, [invoiceId, limit]);
   return result.rows;
+}
+
+/** Invoice error analysis result */
+export interface InvoiceErrorAnalysis {
+  total_with_errors: number;
+  total_without_errors: number;
+  error_rate: number;
+  error_types: Array<{
+    code: string;
+    description: string;
+    count: number;
+  }>;
+}
+
+/**
+ * Get invoice error analysis
+ * Analyzes the has_errors and invoice_errors fields to provide error breakdown
+ */
+export async function getInvoiceErrorAnalysis(params: {
+  startDate?: Date;
+  endDate?: Date;
+  companyId?: number;
+}): Promise<InvoiceErrorAnalysis> {
+  const { startDate, endDate, companyId } = params;
+
+  const queryParams: unknown[] = [];
+  let paramIndex = 1;
+  let whereConditions = '';
+
+  if (startDate && endDate) {
+    whereConditions = `WHERE issue_date >= $${paramIndex} AND issue_date <= $${paramIndex + 1}`;
+    queryParams.push(startDate, endDate);
+    paramIndex += 2;
+  }
+
+  if (companyId) {
+    whereConditions += whereConditions ? ' AND' : 'WHERE';
+    whereConditions += ` company_place_id = $${paramIndex}`;
+    queryParams.push(companyId);
+    paramIndex++;
+  }
+
+  // Get error counts
+  const countQuery = `
+    SELECT
+      COUNT(CASE WHEN has_errors = 1 THEN 1 END)::int as total_with_errors,
+      COUNT(CASE WHEN has_errors = 0 OR has_errors IS NULL THEN 1 END)::int as total_without_errors
+    FROM erp.invoice_notes
+    ${whereConditions}
+  `;
+
+  const countResult = await queryInvoiceDb<{
+    total_with_errors: number;
+    total_without_errors: number;
+  }>(countQuery, queryParams);
+
+  const counts = countResult.rows[0] || { total_with_errors: 0, total_without_errors: 0 };
+  const total = counts.total_with_errors + counts.total_without_errors;
+
+  // Get error details - parse JSON errors and count by type
+  const errorsQuery = `
+    SELECT invoice_errors
+    FROM erp.invoice_notes
+    ${whereConditions}
+    ${whereConditions ? ' AND' : 'WHERE'} has_errors = 1
+      AND invoice_errors IS NOT NULL
+      AND invoice_errors != ''
+  `;
+
+  const errorsResult = await queryInvoiceDb<{ invoice_errors: string }>(
+    errorsQuery,
+    queryParams
+  );
+
+  // Aggregate error types
+  const errorCounts = new Map<string, { description: string; count: number }>();
+
+  for (const row of errorsResult.rows) {
+    try {
+      const errors = JSON.parse(row.invoice_errors) as Record<string, string>;
+      for (const [code, description] of Object.entries(errors)) {
+        const existing = errorCounts.get(code);
+        if (existing) {
+          existing.count++;
+        } else {
+          errorCounts.set(code, { description, count: 1 });
+        }
+      }
+    } catch {
+      // Skip invalid JSON
+    }
+  }
+
+  // Convert to sorted array
+  const errorTypes = Array.from(errorCounts.entries())
+    .map(([code, data]) => ({
+      code,
+      description: data.description,
+      count: data.count,
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  return {
+    total_with_errors: counts.total_with_errors,
+    total_without_errors: counts.total_without_errors,
+    error_rate: total > 0 ? (counts.total_with_errors / total) * 100 : 0,
+    error_types: errorTypes,
+  };
 }

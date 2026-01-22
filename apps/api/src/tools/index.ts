@@ -101,3 +101,11 @@ export {
   type GetInvoiceEventsInput,
   type GetInvoiceEventsResult,
 } from "./get-invoice-events.tool.js";
+
+export {
+  createGetInvoiceErrorsTool,
+  createGetInvoiceErrorsToolWithContext,
+  getInvoiceErrorsWithCache,
+  type GetInvoiceErrorsInput,
+  type GetInvoiceErrorsResult,
+} from "./get-invoice-errors.tool.js";
